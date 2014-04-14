@@ -17,10 +17,30 @@ def resource_path(relative_path):
     return os.path.join(base_path, relative_path)
 
 
-class findFaceGetPulse(object):
+class GetPulse(object):
 
-    def __init__(self, bpm_limits=[], data_spike_limit=250,
-                 face_detector_smoothness=10):
+    # def __init__(self, bpm_limits=[], data_spike_limit=250,
+    #              face_detector_smoothness=10):
+
+    def __init__(self, **kwargs):
+
+        print "Initializing processor with parameters:"
+        for key in kwargs:
+            print "Argument: %s: %s" % (key, kwargs[key])
+
+        # Parse arguments
+        self.find_faces = kwargs.get('find_faces', True)
+        self.draw_scale = kwargs.get('draw_scale', 1.0)
+        self.roi_percent = kwargs.get('roi_percent', 0.8)
+        self.fixed_fps = kwargs.get('fixed_fps', None)
+
+        # Initialize parameters
+        self.find_region = True
+        self.find_rectangle = not self.find_faces
+
+        # self.bpm_limits = kwargs.get('bpm_limits', [])
+        # self.data_spike_limit = kwargs.get('data_spike_limit', 250)
+        # self.face_detector_smoothness = kwargs('face_detector_smoothness',10)
 
         self.frame_in = np.zeros((10, 10))
         self.frame_out = np.zeros((10, 10))
@@ -35,6 +55,7 @@ class findFaceGetPulse(object):
         self.fft = []
         self.slices = [[0]]
         self.t0 = time.time()
+        self.offline_t = 0.;
         self.bpms = []
         self.bpm = 0
         dpath = resource_path("haarcascade_frontalface_alt.xml")
@@ -42,18 +63,22 @@ class findFaceGetPulse(object):
             print "Cascade file not present!"
         self.face_cascade = cv2.CascadeClassifier(dpath)
 
-        self.face_rect = [1, 1, 2, 2]
+        #region of interest - maybe face or image rectangle
+        self.roi = [1, 1, 2, 2]
+        #sub-roi. portion of roi. maybe forehead, center or other
+        self.sub_roi = [0,0,0,0]
         self.last_center = np.array([0, 0])
         self.last_wh = np.array([0, 0])
         self.output_dim = 13
         self.trained = False
-
         self.idx = 1
-        self.find_faces = True
 
-    def find_faces_toggle(self):
-        self.find_faces = not self.find_faces
-        return self.find_faces
+    def set_draw_scale(self, scale):
+        self.draw_scale = scale
+
+    def find_region_toggle(self):
+        self.find_region = not self.find_region
+        return self.find_region
 
     def get_faces(self):
         return
@@ -68,16 +93,16 @@ class findFaceGetPulse(object):
 
     def draw_rect(self, rect, col=(0, 255, 0)):
         x, y, w, h = rect
-        cv2.rectangle(self.frame_out, (x, y), (x + w, y + h), col, 1)
+        cv2.rectangle(self.frame_out, (x, y), (x + w, y + h), col, int(2*self.draw_scale))
 
     def get_subface_coord(self, fh_x, fh_y, fh_w, fh_h):
-        x, y, w, h = self.face_rect
+        x, y, w, h = self.roi
         return [int(x + w * fh_x - (w * fh_w / 2.0)),
                 int(y + h * fh_y - (h * fh_h / 2.0)),
                 int(w * fh_w),
                 int(h * fh_h)]
 
-    def get_subface_means(self, coord):
+    def get_roi_means(self, coord):
         x, y, w, h = coord
         subframe = self.frame_in[y:y + h, x:x + w, :]
         v1 = np.mean(subframe[:, :, 0])
@@ -116,65 +141,116 @@ class findFaceGetPulse(object):
         quit()
 
     def run(self, cam):
-        self.times.append(time.time() - self.t0)
+
+        if self.fixed_fps is None:
+            self.times.append(time.time() - self.t0)
+        else:
+            self.offline_t = self.offline_t + 1.0/30
+            self.times.append(self.offline_t)
+
         self.frame_out = self.frame_in
         self.gray = cv2.equalizeHist(cv2.cvtColor(self.frame_in,
                                                   cv2.COLOR_BGR2GRAY))
-        col = (100, 255, 100)
-        if self.find_faces:
-            cv2.putText(
-                self.frame_out, "Press 'C' to change camera (current: %s)" % str(
-                    cam),
-                (10, 25), cv2.FONT_HERSHEY_PLAIN, 1.25, col)
-            cv2.putText(
-                self.frame_out, "Press 'S' to lock face and begin",
-                       (10, 50), cv2.FONT_HERSHEY_PLAIN, 1.25, col)
-            cv2.putText(self.frame_out, "Press 'Esc' to quit",
-                       (10, 75), cv2.FONT_HERSHEY_PLAIN, 1.25, col)
-            self.data_buffer, self.times, self.trained = [], [], False
-            detected = list(self.face_cascade.detectMultiScale(self.gray,
-                                                               scaleFactor=1.3,
-                                                               minNeighbors=4,
-                                                               minSize=(
-                                                                   50, 50),
-                                                               flags=cv2.CASCADE_SCALE_IMAGE))
 
-            if len(detected) > 0:
-                detected.sort(key=lambda a: a[-1] * a[-2])
+        col = (0, 0, 0)
+        if self.find_region:
 
-                if self.shift(detected[-1]) > 10:
-                    self.face_rect = detected[-1]
-            forehead1 = self.get_subface_coord(0.5, 0.18, 0.25, 0.15)
-            self.draw_rect(self.face_rect, col=(255, 0, 0))
-            x, y, w, h = self.face_rect
-            cv2.putText(self.frame_out, "Face",
-                       (x, y), cv2.FONT_HERSHEY_PLAIN, 1.5, col)
-            self.draw_rect(forehead1)
-            x, y, w, h = forehead1
-            cv2.putText(self.frame_out, "Forehead",
-                       (x, y), cv2.FONT_HERSHEY_PLAIN, 1.5, col)
+            if self.find_faces:
+                curr_pos_h = 25*self.draw_scale
+                cv2.putText(
+                    self.frame_out, "Press 'C' to change camera (current: %s)" % str(
+                        cam),
+                    (10, int(curr_pos_h)), cv2.FONT_HERSHEY_PLAIN, 1.25*self.draw_scale, col, int(self.draw_scale))
+                curr_pos_h = curr_pos_h + 25*self.draw_scale
+                cv2.putText(
+                    self.frame_out, "Press 'S' to lock face and begin",
+                           (10, int(curr_pos_h)), cv2.FONT_HERSHEY_PLAIN, 1.25*self.draw_scale, col, int(self.draw_scale))
+                curr_pos_h = curr_pos_h + 25*self.draw_scale
+                cv2.putText(self.frame_out, "Press 'Esc' to quit",
+                           (10, int(curr_pos_h)), cv2.FONT_HERSHEY_PLAIN, 1.25*self.draw_scale, col, int(self.draw_scale))
+                self.data_buffer, self.times, self.trained = [], [], False
+                detected = list(self.face_cascade.detectMultiScale(self.gray,
+                                                                   scaleFactor=1.3,
+                                                                   minNeighbors=4,
+                                                                   minSize=(
+                                                                       50, 50),
+                                                                   flags=cv2.CASCADE_SCALE_IMAGE))
+
+                if len(detected) > 0:
+                    detected.sort(key=lambda a: a[-1] * a[-2])
+
+                    if self.shift(detected[-1]) > 10:
+                        self.roi = detected[-1]
+                # print self.roi
+                self.sub_roi = self.get_subface_coord(0.5, 0.18, 0.25, 0.15)
+                self.draw_rect(self.roi)
+                x, y, w, h = self.roi
+                cv2.putText(self.frame_out, "Face",
+                           (int(w - w/20.) , int(y - 10*self.draw_scale) ), cv2.FONT_HERSHEY_PLAIN, 1*self.draw_scale, (0, 255, 0), int(self.draw_scale))
+                self.draw_rect(self.sub_roi)
+                x, y, w, h = self.sub_roi
+                cv2.putText(self.frame_out, "Forehead",
+                           (x , int(y - 10*self.draw_scale) ), cv2.FONT_HERSHEY_PLAIN, 1*self.draw_scale, (0, 255, 0), int(self.draw_scale))
+                return
+            if self.find_rectangle:
+                curr_pos_h = 25*self.draw_scale
+                cv2.putText(
+                    self.frame_out, "Press 'C' to change camera (current: %s)" % str(
+                        cam),
+                    (10, int(curr_pos_h)), cv2.FONT_HERSHEY_PLAIN, 1.25*self.draw_scale, col, int(self.draw_scale))
+                curr_pos_h = curr_pos_h + 25*self.draw_scale
+                cv2.putText(
+                    self.frame_out, "Press 'S' to lock region and begin",
+                           (10, int(curr_pos_h)), cv2.FONT_HERSHEY_PLAIN, 1.25*self.draw_scale, col, int(self.draw_scale))
+                curr_pos_h = curr_pos_h + 25*self.draw_scale
+                cv2.putText(self.frame_out, "Press 'Esc' to quit",
+                           (10, int(curr_pos_h)), cv2.FONT_HERSHEY_PLAIN, 1.25*self.draw_scale, col, int(self.draw_scale))
+                self.data_buffer, self.times, self.trained = [], [], False
+
+                w, h, c = self.frame_in.shape;
+                self.roi = [0, 0, h-1, w-1]
+                self.sub_roi = self.get_subface_coord(0.5, 0.5, self.roi_percent, self.roi_percent)
+                # print self.roi, self.sub_roi
+                self.draw_rect(self.roi)
+                x, y, w, h = self.roi
+                cv2.putText(self.frame_out, "",
+                           (x, y), cv2.FONT_HERSHEY_PLAIN, 1*self.draw_scale, (0, 255, 0), int(self.draw_scale))
+                self.draw_rect(self.sub_roi)
+                x, y, w, h = self.sub_roi
+                cv2.putText(self.frame_out, "ROI",
+                           (x, y + h + int(h*0.05)), cv2.FONT_HERSHEY_PLAIN, 1*self.draw_scale, (0, 255, 0), int(self.draw_scale))
+                return
+
+        if set(self.roi) == set([1, 1, 2, 2]):
             return
-        if set(self.face_rect) == set([1, 1, 2, 2]):
-            return
+
+        curr_pos_h = 25*self.draw_scale
         cv2.putText(
             self.frame_out, "Press 'C' to change camera (current: %s)" % str(
                 cam),
-            (10, 25), cv2.FONT_HERSHEY_PLAIN, 1.25, col)
+            (10, int(curr_pos_h)), cv2.FONT_HERSHEY_PLAIN, 1.25*self.draw_scale, col, int(self.draw_scale))
+
+        curr_pos_h = curr_pos_h + 25*self.draw_scale
         cv2.putText(
             self.frame_out, "Press 'S' to restart",
-                   (10, 50), cv2.FONT_HERSHEY_PLAIN, 1.5, col)
+                   (10, int(curr_pos_h)), cv2.FONT_HERSHEY_PLAIN, 1.25*self.draw_scale, col, int(self.draw_scale))
+
+        curr_pos_h = curr_pos_h + 25*self.draw_scale
         cv2.putText(self.frame_out, "Press 'D' to toggle data plot",
-                   (10, 75), cv2.FONT_HERSHEY_PLAIN, 1.5, col)
+                   (10, int(curr_pos_h)), cv2.FONT_HERSHEY_PLAIN, 1.25*self.draw_scale, col, int(self.draw_scale))
+
+        curr_pos_h = curr_pos_h + 25*self.draw_scale
         cv2.putText(self.frame_out, "Press 'Esc' to quit",
-                   (10, 100), cv2.FONT_HERSHEY_PLAIN, 1.5, col)
+                   (10, int(curr_pos_h)), cv2.FONT_HERSHEY_PLAIN, 1.25*self.draw_scale, col, int(self.draw_scale))
 
-        forehead1 = self.get_subface_coord(0.5, 0.18, 0.25, 0.15)
-        self.draw_rect(forehead1)
+        self.draw_rect(self.sub_roi)
 
-        vals = self.get_subface_means(forehead1)
+        # mean intensity value
+        vals = self.get_roi_means(self.sub_roi)
 
         self.data_buffer.append(vals)
         L = len(self.data_buffer)
+        #if exceed buffer size - shift right (pop first element)
         if L > self.buffer_size:
             self.data_buffer = self.data_buffer[-self.buffer_size:]
             self.times = self.times[-self.buffer_size:]
@@ -186,7 +262,9 @@ class findFaceGetPulse(object):
             self.output_dim = processed.shape[0]
             # print "ready"
 
+            # if self.fixed
             self.fps = float(L) / (self.times[-1] - self.times[0])
+            # print self.fps,  (self.times[-1] - self.times[0])
             even_times = np.linspace(self.times[0], self.times[-1], L)
             interpolated = np.interp(even_times, self.times, processed)
             interpolated = np.hamming(L) * interpolated
@@ -197,11 +275,15 @@ class findFaceGetPulse(object):
             self.freqs = float(self.fps) / L * np.arange(L / 2 + 1)
 
             freqs = 60. * self.freqs
-            idx = np.where((freqs > 50) & (freqs < 180))
+            idx = np.where((freqs > 30) & (freqs < 180))
+
+            if not np.sum(idx):
+                print "Skipping: No frequencies in range"
+                self.frame_out = None
+                return
 
             pruned = self.fft[idx]
             phase = phase[idx]
-
             pfreq = freqs[idx]
             self.freqs = pfreq
             self.fft = pruned
@@ -215,7 +297,7 @@ class findFaceGetPulse(object):
             self.bpm = self.freqs[idx2]
             self.idx += 1
 
-            x, y, w, h = self.get_subface_coord(0.5, 0.18, 0.25, 0.15)
+            x, y, w, h = self.sub_roi
             r = alpha * self.frame_in[y:y + h, x:x + w, 0]
             g = alpha * \
                 self.frame_in[y:y + h, x:x + w, 1] + \
@@ -224,9 +306,9 @@ class findFaceGetPulse(object):
             self.frame_out[y:y + h, x:x + w] = cv2.merge([r,
                                                           g,
                                                           b])
-            x1, y1, w1, h1 = self.face_rect
+            x1, y1, w1, h1 = self.roi
             self.slices = [np.copy(self.frame_out[y1:y1 + h1, x1:x1 + w1, 1])]
-            col = (100, 255, 100)
+            col = (100, 100, 255)
             gap = (self.buffer_size - L) / self.fps
             # self.bpms.append(bpm)
             # self.ttimes.append(time.time())
@@ -234,6 +316,5 @@ class findFaceGetPulse(object):
                 text = "(estimate: %0.1f bpm, wait %0.0f s)" % (self.bpm, gap)
             else:
                 text = "(estimate: %0.1f bpm)" % (self.bpm)
-            tsize = 1
             cv2.putText(self.frame_out, text,
-                       (x - w / 2, y), cv2.FONT_HERSHEY_PLAIN, tsize, col)
+                       (x  , y + h + int(h*0.05) ), cv2.FONT_HERSHEY_PLAIN, 1.25*self.draw_scale, col, int(self.draw_scale))

@@ -1,5 +1,5 @@
-from lib.device import Camera
-from lib.processors_noopenmdao import findFaceGetPulse
+from lib.device import Camera, Video
+from lib.processors_noopenmdao import GetPulse
 from lib.interface import plotXY, imshow, waitKey, destroyWindow
 from cv2 import moveWindow
 import argparse
@@ -8,6 +8,7 @@ import datetime
 from serial import Serial
 import socket
 import sys
+import cv2
 
 class getPulseApp(object):
 
@@ -20,12 +21,22 @@ class getPulseApp(object):
     """
 
     def __init__(self, args):
-        # Imaging device - must be a connected camera (not an ip camera or mjpeg
-        # stream)
+
+        # Parse inputs
+        videofile = args.videofile
         serial = args.serial
         baud = args.baud
+        self.roi_percent = args.roi_percent
+
+        self.find_faces = args.find_faces
+
+        self.use_videofile = False
+        if videofile:
+            self.use_videofile = True
+
         self.send_serial = False
         self.send_udp = False
+
         if serial:
             self.send_serial = True
             if not baud:
@@ -47,30 +58,40 @@ class getPulseApp(object):
             self.sock = socket.socket(socket.AF_INET, # Internet
                  socket.SOCK_DGRAM) # UDP
 
-        self.cameras = []
-        self.selected_cam = 0
-        for i in xrange(3):
-            camera = Camera(camera=i)  # first camera by default
-            if camera.valid or not len(self.cameras):
-                self.cameras.append(camera)
-            else:
-                break
-        self.w, self.h = 0, 0
+        #Set up to used video file or connected webcams
+        self.captures = []
+        self.selected_cap = 0
+        self.fixed_fps = None
+        if self.use_videofile:
+            video = Video(videofile)
+            if video.valid or not len(self.captures):
+                    self.captures.append(video)
+                    self.fixed_fps = video.fps
+        else:
+            for i in xrange(3):
+                camera = Camera(camera=i)  # first camera by default
+                if camera.valid or not len(self.captures):
+                    self.captures.append(camera)
+                else:
+                    break
+
+        #Set up viewing window size
+        self.max_view_w = 1024.0
+        self.max_view_h = 768.0
+        self.h, self.w, _ = self.captures[self.selected_cap].shape
+        self.ratio = max(self.h/self.max_view_h, self.w/self.max_view_w)
+        self.ratio = max(self.ratio, 1.0)
+
+        self.view_w = int(self.w/self.ratio)
+        self.view_h = int(self.h/self.ratio)
+
         self.pressed = 0
-        # Containerized analysis of recieved image frames (an openMDAO assembly)
-        # is defined next.
+        self.processor = GetPulse( find_faces = self.find_faces,
+                                   roi_percent = self.roi_percent,
+                                   draw_scale = self.ratio,
+                                   fixed_fps = self.fixed_fps)
 
-        # This assembly is designed to handle all image & signal analysis,
-        # such as face detection, forehead isolation, time series collection,
-        # heart-beat detection, etc.
-
-        # Basically, everything that isn't communication
-        # to the camera device or part of the GUI
-        self.processor = findFaceGetPulse(bpm_limits=[50, 160],
-                                          data_spike_limit=2500.,
-                                          face_detector_smoothness=10.)
-
-        # Init parameters for the cardiac data plot
+        # Initialize parameters for the cardiac data plot
         self.bpm_plot = False
         self.plot_title = "Data display - raw signal (top) and PSD (bottom)"
 
@@ -81,13 +102,29 @@ class getPulseApp(object):
                              "c": self.toggle_cam,
                              "f": self.write_csv}
 
+    def set_view_size():
+
+        self.ratio = max(self.h/self.max_view_h, self.w/self.max_view_w)
+        self.ratio = max(self.ratio, 1.0)
+
+        self.view_w = int(self.w/self.ratio)
+        self.view_h = int(self.h/self.ratio)
+
+        # print self.h, self.w, self.max_view_h, self.max_view_w
+        # print ratio_h, ratio_w, self.view_h, self.view_w
+
     def toggle_cam(self):
-        if len(self.cameras) > 1:
+        if len(self.captures) > 1:
             self.processor.find_faces = True
             self.bpm_plot = False
             destroyWindow(self.plot_title)
-            self.selected_cam += 1
-            self.selected_cam = self.selected_cam % len(self.cameras)
+            self.selected_cap += 1
+            self.selected_cap = self.selected_cap % len(self.captures)
+            #resize viewing window size
+            self.h, self.w, _ = self.captures[self.selected_cap].shape
+            self.set_view_size()
+
+
 
     def write_csv(self):
         """
@@ -103,12 +140,15 @@ class getPulseApp(object):
         """
         Toggles a motion lock on the processor's face detection component.
 
-        Locking the forehead location in place significantly improves
-        data quality, once a forehead has been sucessfully isolated.
+        Locking the sub-region location in place significantly improves
+        data quality.
         """
-        #state = self.processor.find_faces.toggle()
-        state = self.processor.find_faces_toggle()
-        print "face detection lock =", not state
+        state = self.processor.find_region_toggle()
+        # state_face = self.processor.find_faces
+        # state_rect = self.processor.find_rectangle
+        print "region detection lock =", not state
+        # print "find_face =",  state_face
+        # print "find_rectangle =",  state_rect
 
     def toggle_display_plot(self):
         """
@@ -120,7 +160,7 @@ class getPulseApp(object):
             destroyWindow(self.plot_title)
         else:
             print "bpm plot enabled"
-            if self.processor.find_faces:
+            if self.processor.find_region:
                 self.toggle_search()
             self.bpm_plot = True
             self.make_bpm_plot()
@@ -153,8 +193,8 @@ class getPulseApp(object):
         self.pressed = waitKey(10) & 255  # wait for keypress for 10 ms
         if self.pressed == 27:  # exit program on 'esc'
             print "Exiting"
-            for cam in self.cameras:
-                cam.cam.release()
+            for cap in self.captures:
+                cap.release()
             if self.send_serial:
                 self.serial.close()
             sys.exit()
@@ -167,9 +207,11 @@ class getPulseApp(object):
         """
         Single iteration of the application's main loop.
         """
-        # Get current image frame from the camera
-        frame = self.cameras[self.selected_cam].get_frame()
-        self.h, self.w, _c = frame.shape
+        # Get current image frame from video or camera
+        frame = self.captures[self.selected_cap].get_frame()
+
+        self.h, self.w, _ = frame.shape
+        # print frame.shape
 
         # display unaltered frame
         # imshow("Original",frame)
@@ -177,12 +219,25 @@ class getPulseApp(object):
         # set current image frame to the processor's input
         self.processor.frame_in = frame
         # process the image frame to perform all needed analysis
-        self.processor.run(self.selected_cam)
+        self.processor.run(self.selected_cap)
         # collect the output frame for display
         output_frame = self.processor.frame_out
 
+        if output_frame is None:
+            return None
+
         # show the processed/annotated output frame
-        imshow("Processed", output_frame)
+        winName = "Pulse Detector"
+        cv2.namedWindow(winName, cv2.WINDOW_AUTOSIZE)
+        # cv2.displayStatusBar(winName, 'Test')
+        # cv2.namedWindow(winName, cv2.WINDOW_NORMAL | cv2.WINDOW_FREERATIO)
+        # cv2.namedWindow(winName, cv2.WINDOW_FREERATIO)
+        # cv2.namedWindow(winName, cv2.WINDOW_KEEPRATIO)
+        #resize the output_frame to a decent size
+        # print output_frame.shape
+
+        output_frame_resized = cv2.resize(output_frame, (self.view_w, self.view_h), interpolation=cv2.INTER_AREA)
+        imshow(winName, output_frame_resized)
 
         # create and/or update the raw data display if needed
         if self.bpm_plot:
@@ -199,6 +254,12 @@ class getPulseApp(object):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Webcam pulse detector.')
+    parser.add_argument('--videofile', type=str, default=None,
+                        help='if loading from video - filename')
+    parser.add_argument('--find_faces', type=bool, default=False,
+                        help='Set to true if video is a face')
+    parser.add_argument('--roi_percent', type=float, default=0.8,
+                        help='Percentage of the image to process (centered)')
     parser.add_argument('--serial', default=None,
                         help='serial port destination for bpm data')
     parser.add_argument('--baud', default=None,
@@ -207,6 +268,11 @@ if __name__ == "__main__":
                         help='udp address:port destination for bpm data')
 
     args = parser.parse_args()
+
+    print "Running with parameters:"
+    print args
+
     App = getPulseApp(args)
     while True:
-        App.main_loop()
+        if App.main_loop() is None:
+            continue

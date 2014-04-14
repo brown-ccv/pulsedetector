@@ -41,3 +41,42 @@ class Camera(object):
 
     def release(self):
         self.cam.release()
+
+class Video(object):
+
+    def __init__(self, filename):
+        self.filename = filename
+        self.video = cv2.VideoCapture(filename)
+        self.valid = False
+        try:
+            resp = self.video.read()
+            self.shape = resp[1].shape
+            self.currFrame = 0
+            self.numFrames = self.video.get(cv2.CAP_PROP_FRAME_COUNT)
+            self.fps = self.video.get(cv2.CAP_PROP_FPS)
+            self.valid = True
+        except:
+            self.shape = None
+
+    def get_frame(self):
+        if self.valid:
+            flag,frame = self.video.read()
+            self.currFrame = self.video.get(cv2.CAP_PROP_POS_FRAMES)
+            if not flag:
+                frame = np.ones((480,640,3), dtype=np.uint8)
+                col = (0,256,256)
+                cv2.putText(frame, "(Error: Could not read frame)" + str(self.video.get(cv2.CAP_PROP_POS_FRAMES)) ,
+                           (65,220), cv2.FONT_HERSHEY_PLAIN, 2, col)
+            # print self.video.get(cv2.CAP_PROP_FRAME_COUNT)
+            # print self.video.get(cv2.CAP_PROP_POS_FRAMES)
+
+
+        else:
+            frame = np.ones((480,640,3), dtype=np.uint8)
+            col = (0,256,256)
+            cv2.putText(frame, "(Error: Could not read video file)",
+                       (65,220), cv2.FONT_HERSHEY_PLAIN, 2, col)
+        return frame
+
+    def release(self):
+        self.video.release()
