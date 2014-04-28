@@ -33,6 +33,7 @@ class GetPulse(object):
         self.draw_scale = kwargs.get('draw_scale', 1.0)
         self.roi_percent = kwargs.get('roi_percent', 0.8)
         self.fixed_fps = kwargs.get('fixed_fps', None)
+        self.color_plane = kwargs.get('color_plane', None)
 
         # Initialize parameters
         self.find_region = True
@@ -78,6 +79,8 @@ class GetPulse(object):
 
     def find_region_toggle(self):
         self.find_region = not self.find_region
+        print 'ROI: ', self.roi
+        print 'SUB-ROI: ', self.sub_roi
         return self.find_region
 
     def get_faces(self):
@@ -105,11 +108,16 @@ class GetPulse(object):
     def get_roi_means(self, coord):
         x, y, w, h = coord
         subframe = self.frame_in[y:y + h, x:x + w, :]
-        v1 = np.mean(subframe[:, :, 0])
-        v2 = np.mean(subframe[:, :, 1])
-        v3 = np.mean(subframe[:, :, 2])
+        # ni, nj, nc = subframe.shape
+        if self.color_plane is None:
+            v1 = np.mean(subframe[:, :, 0])
+            v2 = np.mean(subframe[:, :, 1])
+            v3 = np.mean(subframe[:, :, 2])
+            return (v1 + v2 + v3) / 3.
+        else:
+            v = np.mean(subframe[:, :, self.color_plane])
+            return v
 
-        return (v1 + v2 + v3) / 3.
 
     def train(self):
         self.trained = not self.trained
@@ -152,7 +160,7 @@ class GetPulse(object):
         self.gray = cv2.equalizeHist(cv2.cvtColor(self.frame_in,
                                                   cv2.COLOR_BGR2GRAY))
 
-        col = (0, 0, 0)
+        col = (0, 0, 255)
         if self.find_region:
 
             if self.find_faces:
@@ -193,6 +201,9 @@ class GetPulse(object):
                            (x , int(y - 10*self.draw_scale) ), cv2.FONT_HERSHEY_PLAIN, 1*self.draw_scale, (0, 255, 0), int(self.draw_scale))
                 return
             if self.find_rectangle:
+                cv2.putText(
+                    self.frame_out, "Frame {}".format(int(self.times[-1]*self.fps)),
+                    (10, int(self.frame_in.shape[0] - 25*self.draw_scale)), cv2.FONT_HERSHEY_PLAIN, 1.25*self.draw_scale, col, int(self.draw_scale))
                 curr_pos_h = 25*self.draw_scale
                 cv2.putText(
                     self.frame_out, "Press 'C' to change camera (current: %s)" % str(
@@ -223,6 +234,9 @@ class GetPulse(object):
 
         if set(self.roi) == set([1, 1, 2, 2]):
             return
+
+        cv2.putText (self.frame_out, "Frame {}".format(int(self.times[-1]*self.fps)),
+                    (10, int(self.frame_in.shape[0] - 25*self.draw_scale)), cv2.FONT_HERSHEY_PLAIN, 1.25*self.draw_scale, col, int(self.draw_scale))
 
         curr_pos_h = 25*self.draw_scale
         cv2.putText(
@@ -308,7 +322,7 @@ class GetPulse(object):
                                                           b])
             x1, y1, w1, h1 = self.roi
             self.slices = [np.copy(self.frame_out[y1:y1 + h1, x1:x1 + w1, 1])]
-            col = (100, 100, 255)
+            col = (0, 0, 255)
             gap = (self.buffer_size - L) / self.fps
             # self.bpms.append(bpm)
             # self.ttimes.append(time.time())
@@ -317,4 +331,4 @@ class GetPulse(object):
             else:
                 text = "(estimate: %0.1f bpm)" % (self.bpm)
             cv2.putText(self.frame_out, text,
-                       (x  , y + h + int(h*0.05) ), cv2.FONT_HERSHEY_PLAIN, 1.25*self.draw_scale, col, int(self.draw_scale))
+                       (x1  , y + h + int(h*0.1) ), cv2.FONT_HERSHEY_PLAIN, 1.25*self.draw_scale, col, int(self.draw_scale))

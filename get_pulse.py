@@ -1,5 +1,6 @@
 from lib.device import Camera, Video
-from lib.processors_noopenmdao import GetPulse
+from lib.processors import GetPulse
+from lib.processor_multi_channel import GetPulseMC
 from lib.interface import plotXY, imshow, waitKey, destroyWindow
 from cv2 import moveWindow
 import argparse
@@ -7,7 +8,7 @@ import numpy as np
 import datetime
 from serial import Serial
 import socket
-import sys
+import sys, os, time
 import cv2
 
 class getPulseApp(object):
@@ -20,19 +21,42 @@ class getPulseApp(object):
     over time, and the detected person's pulse is estimated.
     """
 
-    def __init__(self, args):
+    # Constructor/Initializer
+    def __init__(self, **kwargs):
+
+        self.valid=True
 
         # Parse inputs
-        videofile = args.videofile
-        serial = args.serial
-        baud = args.baud
-        self.roi_percent = args.roi_percent
+        videofile = kwargs.get('videofile', '')
+        serial = kwargs.get('serial', None)
+        baud = kwargs.get('baud', None)
+        self.roi_percent = kwargs.get('roi_percent', 0.2)
+        self.find_faces = kwargs.get('find_faces', False)
+        self.color_space = kwargs.get('color_space', 'rgb')
+        self.color_plane = kwargs.get('color_plane', None)
+        self.output_dir = kwargs.get('output_dir', '')
+        self.no_gui = kwargs.get('no_gui', False)
 
-        self.find_faces = args.find_faces
 
         self.use_videofile = False
-        if videofile:
+        self.csv_fid_out = None
+        if videofile and os.path.exists(videofile):
             self.use_videofile = True
+            fname =  os.path.splitext(os.path.basename(videofile))[0]
+
+            self.output_dir = self.output_dir + "/" + fname
+
+            if not os.path.isdir(self.output_dir + "/" ):
+                os.makedirs(self.output_dir +"/");
+
+            param_suffix = self.color_space + "-" + str(int(self.roi_percent*100))
+            csv_fout= self.output_dir + "/" + param_suffix + ".txt"
+            self.csv_fid_out = open( csv_fout , 'w' )
+
+            #Write Header Info
+            header = 'format:\ntime avg ch0 ch1 ch2\n'
+            self.csv_fid_out.write(header)
+
 
         self.send_serial = False
         self.send_udp = False
@@ -45,7 +69,7 @@ class getPulseApp(object):
                 baud = int(baud)
             self.serial = Serial(port=serial, baudrate=baud)
 
-        udp = args.udp
+        udp = kwargs.get('udp', None)
         if udp:
             self.send_udp = True
             if ":" not in udp:
@@ -67,6 +91,9 @@ class getPulseApp(object):
             if video.valid or not len(self.captures):
                     self.captures.append(video)
                     self.fixed_fps = video.fps
+                    #Write frames/second to file
+                    self.csv_fid_out.write('fps:\n')
+                    self.csv_fid_out.write('{}\n'.format(self.fixed_fps))
         else:
             for i in xrange(3):
                 camera = Camera(camera=i)  # first camera by default
@@ -86,10 +113,21 @@ class getPulseApp(object):
         self.view_h = int(self.h/self.ratio)
 
         self.pressed = 0
-        self.processor = GetPulse( find_faces = self.find_faces,
-                                   roi_percent = self.roi_percent,
-                                   draw_scale = self.ratio,
-                                   fixed_fps = self.fixed_fps)
+        self.pause = True
+        if self.no_gui:
+            self.processor = GetPulseMC( find_faces = self.find_faces,
+                                         roi_percent = self.roi_percent,
+                                         draw_scale = self.ratio,
+                                         fixed_fps = self.fixed_fps,
+                                         no_gui = self.no_gui,
+                                         csv_fid_out = self.csv_fid_out)
+        else:
+            self.processor = GetPulse( find_faces = self.find_faces,
+                                       roi_percent = self.roi_percent,
+                                       draw_scale = self.ratio,
+                                       fixed_fps = self.fixed_fps,
+                                       color_plane = self.color_plane)
+
 
         # Initialize parameters for the cardiac data plot
         self.bpm_plot = False
@@ -100,9 +138,11 @@ class getPulseApp(object):
         self.key_controls = {"s": self.toggle_search,
                              "d": self.toggle_display_plot,
                              "c": self.toggle_cam,
-                             "f": self.write_csv}
+                             "f": self.write_csv,
+                             "p": self.toggle_pause}
 
-    def set_view_size():
+    # Adjust rendered image size to fit on screen
+    def set_view_size(self):
 
         self.ratio = max(self.h/self.max_view_h, self.w/self.max_view_w)
         self.ratio = max(self.ratio, 1.0)
@@ -113,6 +153,7 @@ class getPulseApp(object):
         # print self.h, self.w, self.max_view_h, self.max_view_w
         # print ratio_h, ratio_w, self.view_h, self.view_w
 
+    # Use another webcam
     def toggle_cam(self):
         if len(self.captures) > 1:
             self.processor.find_faces = True
@@ -124,18 +165,18 @@ class getPulseApp(object):
             self.h, self.w, _ = self.captures[self.selected_cap].shape
             self.set_view_size()
 
-
-
+    # Write to a text file
     def write_csv(self):
         """
         Writes current data to a csv file
         """
-        fn = "Webcam-pulse" + str(datetime.datetime.now())
+        fn = "GetPulse-" + str(datetime.datetime.now())
         fn = fn.replace(":", "_").replace(".", "_")
         data = np.vstack((self.processor.times, self.processor.samples)).T
         np.savetxt(fn + ".csv", data, delimiter=',')
         print "Writing csv"
 
+    # Turn on/off region searching
     def toggle_search(self):
         """
         Toggles a motion lock on the processor's face detection component.
@@ -150,6 +191,12 @@ class getPulseApp(object):
         # print "find_face =",  state_face
         # print "find_rectangle =",  state_rect
 
+    # Pause/ Play video
+    def toggle_pause(self):
+        self.pause = not self.pause
+        print "Video Paused = ", self.pause
+
+    # Turn on/off display data and fft
     def toggle_display_plot(self):
         """
         Toggles the data display.
@@ -166,6 +213,7 @@ class getPulseApp(object):
             self.make_bpm_plot()
             moveWindow(self.plot_title, self.w, 0)
 
+    # Display data and fft
     def make_bpm_plot(self):
         """
         Creates and/or updates the data display
@@ -182,6 +230,7 @@ class getPulseApp(object):
                name=self.plot_title,
                bg=self.processor.slices[0])
 
+    # Handle events
     def key_handler(self):
         """
         Handle keystrokes, as set at the bottom of __init__()
@@ -203,6 +252,28 @@ class getPulseApp(object):
             if chr(self.pressed) == key:
                 self.key_controls[key]()
 
+    # Run this app
+    def run(self):
+
+        if self.no_gui:
+            if self.use_videofile :
+                print "Starting App with No Gui"
+                while self.valid:
+                    self.main_loop_no_gui()
+
+                if self.csv_fid_out is not None:
+                    self.csv_fid_out.close()
+
+                print "Finished"
+                        # break
+
+        else:
+            print "Starting App"
+            while True:
+                if App.main_loop() is None:
+                    continue
+
+    # Loop with GUI enabled
     def main_loop(self):
         """
         Single iteration of the application's main loop.
@@ -216,8 +287,13 @@ class getPulseApp(object):
         # display unaltered frame
         # imshow("Original",frame)
 
+
+        if self.color_space == "hsv":
+            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+
         # set current image frame to the processor's input
         self.processor.frame_in = frame
+
         # process the image frame to perform all needed analysis
         self.processor.run(self.selected_cap)
         # collect the output frame for display
@@ -239,6 +315,9 @@ class getPulseApp(object):
         output_frame_resized = cv2.resize(output_frame, (self.view_w, self.view_h), interpolation=cv2.INTER_AREA)
         imshow(winName, output_frame_resized)
 
+        while self.pause:
+           self.key_handler()
+
         # create and/or update the raw data display if needed
         if self.bpm_plot:
             self.make_bpm_plot()
@@ -252,27 +331,76 @@ class getPulseApp(object):
         # handle any key presses
         self.key_handler()
 
+    # Loop with GUI disabled
+    def main_loop_no_gui(self):
+        """
+        Single iteration of the application's main loop.
+        """
+
+        #If reached end of video - exit
+        if self.captures[self.selected_cap].end():
+            print "Reached end of video"
+            self.valid = False
+            return
+
+        # Get current image frame from video
+        frame = self.captures[self.selected_cap].get_frame()
+
+        self.h, self.w, _ = frame.shape
+        # print frame.shape
+
+        if self.color_space == "hsv":
+            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+
+        # set current image frame to the processor's input
+        self.processor.frame_in = frame
+
+        # process the image frame to perform all needed analysis
+        self.processor.run(self.selected_cap)
+
+
+        # handle any key presses
+        self.key_handler()
+
+
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Webcam pulse detector.')
+    parser = argparse.ArgumentParser(description='Pulse detector.')
     parser.add_argument('--videofile', type=str, default=None,
                         help='if loading from video - filename')
-    parser.add_argument('--find_faces', type=bool, default=False,
+    parser.add_argument('--find_faces', action='store_true', default=False,
                         help='Set to true if video is a face')
-    parser.add_argument('--roi_percent', type=float, default=0.8,
+    parser.add_argument('--roi_percent', type=float, default=0.2,
                         help='Percentage of the image to process (centered)')
+    parser.add_argument('--color_space', default="rgb",
+                        help='color space to process the image in - rgb, hsv')
+    parser.add_argument('--color_plane', type=int, default=None,
+                        help='color plane to use for bpm calculation - 0,1,2 - None uses all')
     parser.add_argument('--serial', default=None,
                         help='serial port destination for bpm data')
     parser.add_argument('--baud', default=None,
                         help='Baud rate for serial transmission')
     parser.add_argument('--udp', default=None,
                         help='udp address:port destination for bpm data')
+    parser.add_argument('--no_gui', action='store_true', default=False,
+                        help='Save to file instead')
+    parser.add_argument('--output_dir', type=str, default=None,
+                        help="Where to save the results")
 
     args = parser.parse_args()
 
     print "Running with parameters:"
     print args
 
-    App = getPulseApp(args)
-    while True:
-        if App.main_loop() is None:
-            continue
+    App = getPulseApp(  videofile   =  args.videofile,
+                        serial      =  args.serial,
+                        baud        =  args.baud,
+                        roi_percent =  args.roi_percent,
+                        find_faces  =  args.find_faces,
+                        color_space =  args.color_space,
+                        color_plane =  args.color_plane,
+                        output_dir  =  args.output_dir,
+                        no_gui      =  args.no_gui,
+                        udp         =  args.udp )
+    App.run()
+
+
