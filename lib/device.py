@@ -1,4 +1,4 @@
-import cv2, time
+import cv2, time, sys
 import urllib2, base64
 import numpy as np
 
@@ -51,7 +51,7 @@ class Video(object):
         try:
             resp = self.video.read()
             self.shape = resp[1].shape
-            self.currFrame = 0
+            self.currFrame = self.video.get(cv2.CAP_PROP_POS_FRAMES)
             self.numFrames = self.video.get(cv2.CAP_PROP_FRAME_COUNT)
             self.fps = self.video.get(cv2.CAP_PROP_FPS)
             self.valid = True
@@ -77,6 +77,16 @@ class Video(object):
             cv2.putText(frame, "(Error: Could not read video file)",
                        (65,220), cv2.FONT_HERSHEY_PLAIN, 2, col)
         return frame
+
+    def end(self):
+        temp = '[' + str(self.currFrame) + '/' + str(self.numFrames)+']'
+        sys.stdout.write(temp)
+        sys.stdout.flush()
+
+        if  (abs(self.currFrame - self.numFrames) < 0.2):
+            return True
+        else:
+            return False
 
     def release(self):
         self.video.release()
