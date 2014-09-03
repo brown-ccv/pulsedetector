@@ -3,7 +3,7 @@
 # @Author: Isa Restrepo
 # @Date:   2014-04-20 18:31:00
 # @Last Modified by:   Isa Restrepo
-# @Last Modified time: 2014-04-27 14:51:34
+# @Last Modified time: 2014-05-20 11:48:28
 # Analyze csv file to get pulse
 
 import argparse, os
@@ -16,6 +16,10 @@ import scipy.io.wavfile as wav
 
 from sklearn import preprocessing
 from sklearn.decomposition import FastICA
+
+from lib.device import Video
+import lib.signal_process_util as sp_util
+
 
 
 class getPulseFromFileApp(object):
@@ -62,27 +66,41 @@ class getPulseFromFileApp(object):
                 print "Error: Output dir does not exist - ", self.output_dir
                 exit()
 
-            csv_fin= self.output_dir + "/" + self.param_suffix + ".txt"
-            csv_fid_in = open( csv_fin , 'r' )
-            self.fps = float(csv_fid_in.readlines()[3])
-            print "Video FPS: ", str(self.fps)
-            csv_fid_in.seek(0) #reset file pointer
-            self.data = np.genfromtxt(csv_fid_in, dtype=float, delimiter=' ', skip_header=4);
-            csv_fid_in.close()
+            # csv_fin= self.output_dir + "/" + self.param_suffix + ".txt"
+            # csv_fid_in = open( csv_fin , 'r' )
+            # self.fps = float(csv_fid_in.readlines()[3])
+            # print "Video FPS: ", str(self.fps)
+            # csv_fid_in.seek(0) #reset file pointer
+            # self.data = np.genfromtxt(csv_fid_in, dtype=float, delimiter=' ', skip_header=4);
+            # csv_fid_in.close()
+
+            video = Video(videofile)
+            if video.valid:
+                    self.fps = video.fps
+                    video.release()
+
+            csv_fin= self.output_dir + "/" + self.param_suffix + ".npy"
+            self.data = np.load(csv_fin)
+
+
             print "Done reading data of size: " , self.data.shape
 
             if bandpass:
                 shape = self.data.shape
-                for k in xrange(1,shape[1]):
-                    npad = int(10*self.fps)
-                    data_pad = np.lib.pad(self.data[:,k], npad, 'median')
-                    data_pad = self.butter_bandpass_filter(data_pad, lowcut, highcut, self.fps, 5)
-                    self.data[:,k] = data_pad[npad:-npad]
+                for grid_idx in xrange(0,shape[1]):
+                    self.data[:, grid_idx] = sp_util.bandpass(self.data[:, grid_idx], self.fps, lowcut, highcut)
+                    # for val_idx in xrange(1,shape[2]):
+                        # npad = int(10*self.fps)
+                        # data_pad = np.lib.pad(self.data[:, grid_idx, val_idx], npad, 'median')
+                        # data_pad = self.butter_bandpass_filter(data_pad, lowcut, highcut, self.fps, 5)
+                        # self.data[:, grid_idx, val_idx] = data_pad[npad:-npad]
+
+
 
 
             #whiten the data
             # self.data[:,1:5] = preprocessing.scale(self.data[:,1:5])
-
+        self.audio_time = None
         if audiofile and os.path.exists(audiofile):
             print "Found corresponding audio file: ", audiofile
             self.use_audio = True
@@ -151,14 +169,18 @@ class getPulseFromFileApp(object):
         else:
 
             for k in xrange(dim):
-                data_ax.plot(x_data, y_data[:,k],
-                             color=colors[k],
-                             label=labels[k])
+                data_ax.plot( x_data, y_data[:,k],
+                              color=colors[k],
+                              label=labels[k])
+
+
         #data axis properties
         data_ax.set_ylabel(ylabel,fontsize= 14);
-        plt.locator_params(axis = 'y', nbins = 4)
+        plt.locator_params(axis = 'y', nbins = 10)
         data_ax.set_xlabel(xlabel,fontsize= 14);
         data_ax.legend(loc='best', frameon=False);
+        data_ax.grid(True)
+
 
         #---------------------------------------------------------------
         #           If given, plot AudioSignal
@@ -172,9 +194,11 @@ class getPulseFromFileApp(object):
 
                 #audio axis properties
                 audio_ax.set_ylabel(ylabel, fontsize= 14);
-                plt.locator_params(axis = 'y', nbins = 4)
+                plt.locator_params(axis = 'y', nbins = 10)
                 audio_ax.set_xlabel(xlabel,fontsize= 14);
                 audio_ax.legend(loc='best', frameon=False);
+                audio_ax.grid(True)
+
             else:
                 data_ax.plot(x_audio, y_audio,
                              color=color_audio,
@@ -182,9 +206,10 @@ class getPulseFromFileApp(object):
 
                 #data axis properties
                 data_ax.set_ylabel(ylabel,fontsize= 14);
-                plt.locator_params(axis = 'y', nbins = 4)
+                plt.locator_params(axis = 'y', nbins = 10)
                 data_ax.set_xlabel(xlabel,fontsize= 14);
                 data_ax.legend(loc='best', frameon=False);
+                data_ax.grid(True)
 
 
         # Save plots
@@ -250,7 +275,6 @@ class getPulseFromFileApp(object):
         #------- FFT and ideal filter -------------
         raw = fftpack.fft(data,nfft, axis=0)    #run fft
         fft = np.abs(raw[0:L/2])                #get magnitude/real part
-        fft  = 10.*np.log10(fft/ np.min(fft))   #convert to dB
         freqs = np.linspace(0.0, Fs/2., L/2)    #frequencies
         freqs = 60. * freqs                     #convert to BPM (pulse)
         idx = np.where((freqs > 40) & (freqs < 180)) #ideal filter
@@ -265,6 +289,9 @@ class getPulseFromFileApp(object):
 
         pruned = pruned.T
         pfreq = freqs[idx]
+
+        # fft  = 10.*np.log10(fft/ np.min(fft))   #convert to dB
+        pruned  = (pruned - np.min(pruned)) / (np.max(pruned) - np.min(pruned))  # Normalize
 
         return pfreq, pruned
 
@@ -289,7 +316,8 @@ class getPulseFromFileApp(object):
         #              Take Care of VideoSignal:
         #   Compute fft, get max value and attach to plot label
         #---------------------------------------------------------------
-        freqs, fft = self.compute_fft(time, data, self.fps)
+        freqs, fft, phase = sp_util.compute_fft(time, data, self.fps)
+
         print "Done computing fft"
 
         shape = fft.shape
@@ -304,6 +332,11 @@ class getPulseFromFileApp(object):
             bpm_idx = np.argmax(fft[:,k])
             new_labels.append(labels[k] + ': ' + "{:.2f} bpm".format(freqs[bpm_idx]))
 
+        #------ Smooth video fft ------------
+        even_freqs = np.linspace(freqs[0], freqs[-1], len(freqs)*4)
+        f_interp = interpolate.interp1d(freqs, fft, kind='cubic', axis=0)
+        fft_smooth = f_interp(even_freqs)
+
         #---------------------------------------------------------------
         #            If appropriate, take Care of AudioSignal
         #   Compute fft, get max value and attach to plot label
@@ -311,16 +344,22 @@ class getPulseFromFileApp(object):
         freqs_audio = None
         fft_audio = None
         if use_audio:
-            freqs_audio, fft_audio =   self.compute_fft(audio_time, audio, self.audio_fs)
+            freqs_audio, fft_audio, phase_audio =   sp_util.compute_fft(audio_time, audio, self.audio_fs)
             print "Done computing audio fft"
 
         bpm_idx = np.argmax(fft_audio)
         label_audio = 'Audio: {:.2f} bpm'.format(freqs_audio[bpm_idx])
 
-        self.plot_vals(x_data = freqs,
-                       y_data = fft,
-                       x_audio = freqs_audio,
-                       y_audio = fft_audio,
+        #------ Smooth audio fft ------------
+        even_freqs_audio = np.linspace(freqs_audio[0], freqs_audio[-1], len(freqs_audio)*4)
+        f_interp = interpolate.interp1d(freqs_audio, fft_audio, kind='cubic', axis=0)
+        fft_audio_smooth = f_interp(even_freqs_audio)
+
+        #------ Plot ------------
+        self.plot_vals(x_data = even_freqs,
+                       y_data = fft_smooth,
+                       x_audio = even_freqs_audio,
+                       y_audio = fft_audio_smooth,
                        suffix = suffix ,
                        xlabel = 'BPM',
                        ylabel = 'dB',

@@ -1,4 +1,4 @@
-import cv2, time, sys
+import cv2, sys
 import urllib2, base64
 import numpy as np
 
@@ -15,7 +15,7 @@ class ipCamera(object):
         response = urllib2.urlopen(self.req)
         img_array = np.asarray(bytearray(response.read()), dtype=np.uint8)
         frame = cv2.imdecode(img_array, 1)
-        return frame
+        return True, frame
 
 class Camera(object):
 
@@ -31,13 +31,14 @@ class Camera(object):
 
     def get_frame(self):
         if self.valid:
-            _,frame = self.cam.read()
+            flag,frame = self.cam.read()
         else:
+            flag = False
             frame = np.ones((480,640,3), dtype=np.uint8)
             col = (0,256,256)
             cv2.putText(frame, "(Error: Camera not accessible)",
                        (65,220), cv2.FONT_HERSHEY_PLAIN, 2, col)
-        return frame
+        return flag, frame
 
     def release(self):
         self.cam.release()
@@ -54,6 +55,7 @@ class Video(object):
             self.currFrame = self.video.get(cv2.CAP_PROP_POS_FRAMES)
             self.numFrames = self.video.get(cv2.CAP_PROP_FRAME_COUNT)
             self.fps = self.video.get(cv2.CAP_PROP_FPS)
+            self.codec = int(self.video.get(cv2.CAP_PROP_FOURCC))
             self.valid = True
         except:
             self.shape = None
@@ -72,11 +74,13 @@ class Video(object):
 
 
         else:
+            flag = False
             frame = np.ones((480,640,3), dtype=np.uint8)
             col = (0,256,256)
             cv2.putText(frame, "(Error: Could not read video file)",
                        (65,220), cv2.FONT_HERSHEY_PLAIN, 2, col)
-        return frame
+
+        return flag, frame
 
     def end(self):
         temp = '[' + str(self.currFrame) + '/' + str(self.numFrames)+']'

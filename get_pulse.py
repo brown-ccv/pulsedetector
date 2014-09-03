@@ -1,7 +1,17 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+# @Author: GitHub
+# @Date:   2014-04-20 18:31:00
+# @Last Modified by:   Isa Restrepo
+# @Last Modified time: 2014-06-02 16:18:45
+
+
+
 from lib.device import Camera, Video
-from lib.processors import GetPulse
+# from lib.processors import GetPulse
 from lib.processor_multi_channel import GetPulseMC
 from lib.interface import plotXY, imshow, waitKey, destroyWindow
+import cv2
 from cv2 import moveWindow
 import argparse
 import numpy as np
@@ -9,15 +19,21 @@ import datetime
 from serial import Serial
 import socket
 import sys, os, time
-import cv2
 
 class getPulseApp(object):
 
     """
-    Python application that finds a face in a webcam stream, then isolates the
-    forehead.
+    Python application to find a persons pulse in a given region.
+    The input can be a video or a webcam stream.
+    If the video contains a face, the algorithm can automatically detect
+    the person's face and analyze a region in the forehead.
+    In other situations a particular region can be specified
 
-    Then the average green-light intensity in the forehead region is gathered
+    If the application is run with no-gui option, the intensity values in
+    the specified region are saved to file.
+
+    If the gui is enabled, then the average intensity in the specified
+    region and channel is gathered
     over time, and the detected person's pulse is estimated.
     """
 
@@ -34,29 +50,23 @@ class getPulseApp(object):
         self.find_faces = kwargs.get('find_faces', False)
         self.color_space = kwargs.get('color_space', 'rgb')
         self.color_plane = kwargs.get('color_plane', None)
-        self.output_dir = kwargs.get('output_dir', '')
+        self.output_dir = kwargs.get('output_dir', None)
         self.no_gui = kwargs.get('no_gui', False)
+        grid_size = kwargs.get('grid_size', 1)
+        self.save_output = kwargs.get('save_output', False)
 
 
         self.use_videofile = False
         self.csv_fid_out = None
+        self.vid_out = None
+
         if videofile and os.path.exists(videofile):
             self.use_videofile = True
-            fname =  os.path.splitext(os.path.basename(videofile))[0]
 
-            self.output_dir = self.output_dir + "/" + fname
-
-            if not os.path.isdir(self.output_dir + "/" ):
-                os.makedirs(self.output_dir +"/");
-
-            param_suffix = self.color_space + "-" + str(int(self.roi_percent*100))
-            csv_fout= self.output_dir + "/" + param_suffix + ".txt"
-            self.csv_fid_out = open( csv_fout , 'w' )
-
-            #Write Header Info
-            header = 'format:\ntime avg ch0 ch1 ch2\n'
-            self.csv_fid_out.write(header)
-
+        if self.save_output:
+            if self.output_dir is None:
+                print "Output won't be save: No output directory given"
+                self.save_output = False
 
         self.send_serial = False
         self.send_udp = False
@@ -91,9 +101,36 @@ class getPulseApp(object):
             if video.valid or not len(self.captures):
                     self.captures.append(video)
                     self.fixed_fps = video.fps
-                    #Write frames/second to file
-                    self.csv_fid_out.write('fps:\n')
-                    self.csv_fid_out.write('{}\n'.format(self.fixed_fps))
+
+                    if self.output_dir is not None:
+                        fname =  os.path.splitext(os.path.basename(videofile))[0]
+                        self.output_dir = self.output_dir + "/" + fname
+                        if not os.path.isdir(self.output_dir + "/" ):
+                            os.makedirs(self.output_dir +"/");
+
+                        # Init CSV
+                        param_suffix = self.color_space + "-" + str(int(self.roi_percent*100)) \
+                                        + "-" + str(grid_size)
+                        csv_fout= self.output_dir + "/" + param_suffix + ".npy"
+
+                        #Write Header Info
+                        if self.no_gui:
+                            self.csv_fid_out = open( csv_fout , 'w' )
+                            # header = 'format:\ntime ch0 ch1 ch2\n'
+                            # self.csv_fid_out.write(header)
+                            # self.csv_fid_out.write('fps:\n')
+                            # self.csv_fid_out.write('{}\n'.format(self.fixed_fps))
+
+                        # Init video writer
+                        if not self.no_gui and self.save_output:
+                            video_fout= self.output_dir + "/" + param_suffix + ".mov"
+                            # Define the codec and create VideoWriter object
+                            fourcc = cv2.VideoWriter_fourcc('m', 'p', '4', 'v')
+                            # fourCC = cv2.FOURCC('i','Y','U', 'V')
+                            # print video.codec
+                            self.vid_out = cv2.VideoWriter(video_fout, fourcc, self.fixed_fps, (video.shape[1], video.shape[0]))
+                            if not self.vid_out.isOpened():
+                                print "Error opening video stream"
         else:
             for i in xrange(3):
                 camera = Camera(camera=i)  # first camera by default
@@ -114,19 +151,20 @@ class getPulseApp(object):
 
         self.pressed = 0
         self.pause = True
-        if self.no_gui:
-            self.processor = GetPulseMC( find_faces = self.find_faces,
-                                         roi_percent = self.roi_percent,
-                                         draw_scale = self.ratio,
-                                         fixed_fps = self.fixed_fps,
-                                         no_gui = self.no_gui,
-                                         csv_fid_out = self.csv_fid_out)
+
+        if self.use_videofile and video.valid:
+            nframes = video.numFrames;
         else:
-            self.processor = GetPulse( find_faces = self.find_faces,
-                                       roi_percent = self.roi_percent,
-                                       draw_scale = self.ratio,
-                                       fixed_fps = self.fixed_fps,
-                                       color_plane = self.color_plane)
+            nframes = 0;
+
+        self.processor = GetPulseMC( find_faces = self.find_faces,
+                                     roi_percent = self.roi_percent,
+                                     draw_scale = self.ratio,
+                                     fixed_fps = self.fixed_fps,
+                                     no_gui = self.no_gui,
+                                     csv_fid_out = self.csv_fid_out,
+                                     grid_size   = grid_size,
+                                     nframes = nframes)
 
 
         # Initialize parameters for the cardiac data plot
@@ -165,16 +203,24 @@ class getPulseApp(object):
             self.h, self.w, _ = self.captures[self.selected_cap].shape
             self.set_view_size()
 
-    # Write to a text file
+    # # Write to a text file
+    # def write_csv(self):
+    #     """
+    #     Writes current data to a csv file
+    #     """
+    #     fn = "GetPulse-" + str(datetime.datetime.now())
+    #     fn = fn.replace(":", "_").replace(".", "_")
+    #     data = np.vstack((self.processor.times, self.processor.samples)).T
+    #     np.savetxt(fn + ".csv", data, delimiter=',')
+    #     print "Writing csv"
+
     def write_csv(self):
         """
-        Writes current data to a csv file
+        Writes inputs to a csv file
         """
-        fn = "GetPulse-" + str(datetime.datetime.now())
-        fn = fn.replace(":", "_").replace(".", "_")
-        data = np.vstack((self.processor.times, self.processor.samples)).T
-        np.savetxt(fn + ".csv", data, delimiter=',')
-        print "Writing csv"
+        np.save(self.csv_fid_out, self.processor.vals_out)
+        # print "Writing csv"
+
 
     # Turn on/off region searching
     def toggle_search(self):
@@ -246,6 +292,8 @@ class getPulseApp(object):
                 cap.release()
             if self.send_serial:
                 self.serial.close()
+            if self.vid_out:
+                self.vid_out.release()
             sys.exit()
 
         for key in self.key_controls.keys():
@@ -262,6 +310,7 @@ class getPulseApp(object):
                     self.main_loop_no_gui()
 
                 if self.csv_fid_out is not None:
+                    self.write_csv()
                     self.csv_fid_out.close()
 
                 print "Finished"
@@ -270,7 +319,7 @@ class getPulseApp(object):
         else:
             print "Starting App"
             while True:
-                if App.main_loop() is None:
+                if self.main_loop() is None:
                     continue
 
     # Loop with GUI enabled
@@ -279,7 +328,7 @@ class getPulseApp(object):
         Single iteration of the application's main loop.
         """
         # Get current image frame from video or camera
-        frame = self.captures[self.selected_cap].get_frame()
+        flag, frame = self.captures[self.selected_cap].get_frame()
 
         self.h, self.w, _ = frame.shape
         # print frame.shape
@@ -302,15 +351,13 @@ class getPulseApp(object):
         if output_frame is None:
             return None
 
+        # Write video
+        if self.save_output:
+            self.vid_out.write(frame)
+
         # show the processed/annotated output frame
         winName = "Pulse Detector"
         cv2.namedWindow(winName, cv2.WINDOW_AUTOSIZE)
-        # cv2.displayStatusBar(winName, 'Test')
-        # cv2.namedWindow(winName, cv2.WINDOW_NORMAL | cv2.WINDOW_FREERATIO)
-        # cv2.namedWindow(winName, cv2.WINDOW_FREERATIO)
-        # cv2.namedWindow(winName, cv2.WINDOW_KEEPRATIO)
-        #resize the output_frame to a decent size
-        # print output_frame.shape
 
         output_frame_resized = cv2.resize(output_frame, (self.view_w, self.view_h), interpolation=cv2.INTER_AREA)
         imshow(winName, output_frame_resized)
@@ -344,7 +391,7 @@ class getPulseApp(object):
             return
 
         # Get current image frame from video
-        frame = self.captures[self.selected_cap].get_frame()
+        flag, frame = self.captures[self.selected_cap].get_frame()
 
         self.h, self.w, _ = frame.shape
         # print frame.shape
@@ -385,6 +432,9 @@ if __name__ == "__main__":
                         help='Save to file instead')
     parser.add_argument('--output_dir', type=str, default=None,
                         help="Where to save the results")
+    parser.add_argument('--grid_size', type=int, default= 1,
+                        help= 'ROI is a grid of size GSxGS')
+    parser.add_argument('--save_output', action='store_true', default=False)
 
     args = parser.parse_args()
 
@@ -400,7 +450,10 @@ if __name__ == "__main__":
                         color_plane =  args.color_plane,
                         output_dir  =  args.output_dir,
                         no_gui      =  args.no_gui,
-                        udp         =  args.udp )
+                        udp         =  args.udp,
+                        grid_size   =  args.grid_size,
+                        save_output =  args.save_output)
+
     App.run()
 
 
