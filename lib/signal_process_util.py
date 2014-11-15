@@ -3,7 +3,7 @@
 # @Author: Isa Restrepo
 # @Date:   2014-05-01 16:00:07
 # @Last Modified by:   Isa Restrepo
-# @Last Modified time: 2014-05-20 11:44:58
+# @Last Modified time: 2014-11-02 14:53:22
 
 
 import numpy as np
@@ -79,6 +79,8 @@ def compute_fft(time, data, Fs):
     else:
         dim = 1
 
+    print "Here"
+    print time
     #------ Data preprocessing ------------
     even_times = np.linspace(time[0], time[-1], L)
     f_interp = interpolate.interp1d(time, data, kind='linear', axis=0)

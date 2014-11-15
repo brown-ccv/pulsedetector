@@ -3,7 +3,7 @@
 # @Author: Isa Restrepo
 # @Date:   2014-04-20 18:31:00
 # @Last Modified by:   Isa Restrepo
-# @Last Modified time: 2014-05-20 11:48:28
+# @Last Modified time: 2014-11-06 21:05:59
 # Analyze csv file to get pulse
 
 import argparse, os
@@ -316,6 +316,7 @@ class getPulseFromFileApp(object):
         #              Take Care of VideoSignal:
         #   Compute fft, get max value and attach to plot label
         #---------------------------------------------------------------
+        print "Time:", time
         freqs, fft, phase = sp_util.compute_fft(time, data, self.fps)
 
         print "Done computing fft"
@@ -347,27 +348,41 @@ class getPulseFromFileApp(object):
             freqs_audio, fft_audio, phase_audio =   sp_util.compute_fft(audio_time, audio, self.audio_fs)
             print "Done computing audio fft"
 
-        bpm_idx = np.argmax(fft_audio)
-        label_audio = 'Audio: {:.2f} bpm'.format(freqs_audio[bpm_idx])
+            bpm_idx = np.argmax(fft_audio)
+            label_audio = 'Audio: {:.2f} bpm'.format(freqs_audio[bpm_idx])
 
-        #------ Smooth audio fft ------------
-        even_freqs_audio = np.linspace(freqs_audio[0], freqs_audio[-1], len(freqs_audio)*4)
-        f_interp = interpolate.interp1d(freqs_audio, fft_audio, kind='cubic', axis=0)
-        fft_audio_smooth = f_interp(even_freqs_audio)
+            #------ Smooth audio fft ------------
+            even_freqs_audio = np.linspace(freqs_audio[0], freqs_audio[-1], len(freqs_audio)*4)
+            f_interp = interpolate.interp1d(freqs_audio, fft_audio, kind='cubic', axis=0)
+            fft_audio_smooth = f_interp(even_freqs_audio)
 
-        #------ Plot ------------
-        self.plot_vals(x_data = even_freqs,
-                       y_data = fft_smooth,
-                       x_audio = even_freqs_audio,
-                       y_audio = fft_audio_smooth,
-                       suffix = suffix ,
-                       xlabel = 'BPM',
-                       ylabel = 'dB',
-                       colors = colors,
-                       labels = new_labels,
-                       color_audio = 'blue',
-                       label_audio = label_audio,
-                       subplot_audio = False)
+            #------ Plot ------------
+            self.plot_vals(x_data = even_freqs,
+                           y_data = fft_smooth,
+                           x_audio = even_freqs_audio,
+                           y_audio = fft_audio_smooth,
+                           suffix = suffix ,
+                           xlabel = 'BPM',
+                           ylabel = 'dB',
+                           colors = colors,
+                           labels = new_labels,
+                           color_audio = 'blue',
+                           label_audio = label_audio,
+                           subplot_audio = False)
+        else:
+            #------ Plot ------------
+            self.plot_vals(x_data = even_freqs,
+                           y_data = fft_smooth,
+                           x_audio = [],
+                           y_audio = [],
+                           suffix = suffix ,
+                           xlabel = 'BPM',
+                           ylabel = 'dB',
+                           colors = colors,
+                           labels = new_labels,
+                           color_audio = 'blue',
+                           label_audio = '',
+                           subplot_audio = False)
 
     def compute_ica(self, data):
         ica = FastICA()

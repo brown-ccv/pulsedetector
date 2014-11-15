@@ -3,7 +3,7 @@
 # @Author: GitHub
 # @Date:   2014-04-20 18:31:00
 # @Last Modified by:   Isa Restrepo
-# @Last Modified time: 2014-06-02 16:18:45
+# @Last Modified time: 2014-11-06 16:06:30
 
 
 
@@ -138,6 +138,8 @@ class getPulseApp(object):
                     self.captures.append(camera)
                 else:
                     break
+
+            print 'Number of webcams: ', len(self.captures)
 
         #Set up viewing window size
         self.max_view_w = 1024.0

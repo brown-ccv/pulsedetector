@@ -3,21 +3,22 @@
 # @Author: Isa Restrepo
 # @Date:   2014-04-20 13:20:18
 # @Last Modified by:   Isa Restrepo
-# @Last Modified time: 2014-06-02 16:22:32
+# @Last Modified time: 2014-11-06 20:43:42
 
 
-if False:
+if True:
     from get_pulse import getPulseApp
     find_faces = False
-    roi_percent = 0.5
+    roi_percent = 0.8
     grid_size = 2
     color_space = 'rgb'
-    no_gui = True
+    no_gui = False
     output_dir = '/Users/isa/Dropbox/Experiments/VacuScan-develop'
     save_output = False
 
 
-    videofile = '/Users/isa/Dropbox/data/VACUScan/Steve-L-Palm-30-sec-stable-30-sec-occlusion-1-min-recovery-Pulse-Ox-70-to-92.mov'
+    videofile = '/Users/isa/Dropbox/data/tests/IMG_1949.MOV'
+    # videofile = ''
     App = getPulseApp(videofile   =  videofile,
                       roi_percent =  roi_percent,
                       find_faces  =  find_faces,

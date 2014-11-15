@@ -4,7 +4,7 @@
 # @Date:   2014-04-15 16:13:40
 # Process a region and save and show pulse-related metrics for each channel
 # @Last Modified by:   Isa Restrepo
-# @Last Modified time: 2014-05-19 22:19:41
+# @Last Modified time: 2014-11-06 17:38:08
 
 import numpy as np
 import time
@@ -161,8 +161,9 @@ class GetPulseMC(object):
         self.gray = cv2.equalizeHist(cv2.cvtColor(self.frame_in,
                                                   cv2.COLOR_BGR2GRAY))
 
-        col = (0, 0, 255)
-        frame_idx = int((self.times[-1]*self.fps)+0.1) - 1
+        col = (0, 255, 0)
+        # frame_idx = int((self.times[-1]*self.fps)+0.1) - 1
+        frame_idx = len(self.times) - 1
         # print 'frame_idx: ' , frame_idx
         if self.no_gui:
             if frame_idx == 0:
