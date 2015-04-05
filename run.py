@@ -3,7 +3,7 @@
 # @Author: Isa Restrepo
 # @Date:   2014-04-20 13:20:18
 # @Last Modified by:   Isa Restrepo
-# @Last Modified time: 2014-11-06 20:43:42
+# @Last Modified time: 2015-03-31 22:58:05
 
 
 if True:
@@ -46,8 +46,6 @@ if False:
 
 if False:
     from motion.videostab import videostab
-
-
 
     exe_path = '/Users/isa/Dropbox/Projects/pulse_detector/cpp/bin/release/motion'
     exe = exe_path + "/videostab1"
