@@ -13,7 +13,7 @@ from scipy.signal import butter, lfilter
 from scipy import interpolate, fftpack
 
 # from sklearn import preprocessing
-from sklearn.decomposition import FastICA
+# from sklearn.decomposition import FastICA
 
 """
 Signal Processing helper methods
@@ -132,12 +132,12 @@ def compute_fft(time, data, Fs):
     return pfreq, pruned, pphase
 
 
-def compute_ica( data):
-    ica = FastICA()
-    S_ = ica.fit(data).transform(data)  # Get the estimated sources
-    A_ = ica.mixing_  # Get estimated mixing matrix
+# def compute_ica( data):
+#     ica = FastICA()
+#     S_ = ica.fit(data).transform(data)  # Get the estimated sources
+#     A_ = ica.mixing_  # Get estimated mixing matrix
 
-    return S_, A_
+#     return S_, A_
 
 """Detect peaks in data based on their amplitude and other features."""
 

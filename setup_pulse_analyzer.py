@@ -9,17 +9,18 @@
 from setuptools import setup
 import os, sys, glob
 
-frameworks = []
-opencvLibs = glob.glob(os.path.join(sys.exec_prefix, 'lib', 'libopencv*.2.4.dylib'))
-frameworks.extend(opencvLibs)
+# frameworks = []
+# opencvLibs = glob.glob(os.path.join(sys.exec_prefix, 'lib', 'libopencv*.2.4.dylib'))
+# frameworks.extend(opencvLibs)
 
 
 APP = ['pulse_wave_app.py']
 DATA_FILES = []
 OPTIONS = {
-    # 'argv_emulation': True
-    'frameworks' : frameworks,
-    'includes': [ 'cv2']
+    'argv_emulation': False,
+    'iconfile': '/Users/isa/Desktop/tests/pulse_wave_app2.icns' 
+    # 'frameworks' : frameworks,
+    # 'includes': [ 'cv2']
      # 'sklearn', 'sklearn.utils',
     #                'sklearn.utils.sparsetools._graph_validation',
     #                'sklearn.utils.lgamma',
