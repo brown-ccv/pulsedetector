@@ -16,8 +16,8 @@ from cv2 import moveWindow
 import argparse
 import numpy as np
 import datetime
-from serial import Serial
-import socket
+# from serial import Serial
+# import socket
 import sys, os, time
 
 class getPulseApp(object):
@@ -60,37 +60,40 @@ class getPulseApp(object):
         self.csv_fid_out = None
         self.vid_out = None
 
+        print "get-pulse, video file: " + videofile
         if videofile and os.path.exists(videofile):
+
             self.use_videofile = True
+            print 'get-pulse: Using video'
 
         if self.save_output:
             if self.output_dir is None:
                 print "Output won't be save: No output directory given"
                 self.save_output = False
 
-        self.send_serial = False
-        self.send_udp = False
+        # self.send_serial = False
+        # self.send_udp = False
 
-        if serial:
-            self.send_serial = True
-            if not baud:
-                baud = 9600
-            else:
-                baud = int(baud)
-            self.serial = Serial(port=serial, baudrate=baud)
+        # if serial:
+        #     self.send_serial = True
+        #     if not baud:
+        #         baud = 9600
+        #     else:
+        #         baud = int(baud)
+        #     self.serial = Serial(port=serial, baudrate=baud)
 
-        udp = kwargs.get('udp', None)
-        if udp:
-            self.send_udp = True
-            if ":" not in udp:
-                ip = udp
-                port = 5005
-            else:
-                ip, port = udp.split(":")
-                port = int(port)
-            self.udp = (ip, port)
-            self.sock = socket.socket(socket.AF_INET, # Internet
-                 socket.SOCK_DGRAM) # UDP
+        # udp = kwargs.get('udp', None)
+        # if udp:
+        #     self.send_udp = True
+        #     if ":" not in udp:
+        #         ip = udp
+        #         port = 5005
+        #     else:
+        #         ip, port = udp.split(":")
+        #         port = int(port)
+        #     self.udp = (ip, port)
+        #     self.sock = socket.socket(socket.AF_INET, # Internet
+        #          socket.SOCK_DGRAM) # UDP
 
         #Set up to used video file or connected webcams
         self.captures = []
@@ -98,14 +101,18 @@ class getPulseApp(object):
         self.fixed_fps = None
         if self.use_videofile:
             video = Video(videofile)
+            
             if video.valid or not len(self.captures):
                     self.captures.append(video)
                     self.fixed_fps = video.fps
-
+                    print('Here')
+                    print  (self.output_dir is not None)
                     if self.output_dir is not None:
                         fname =  os.path.splitext(os.path.basename(videofile))[0]
                         self.output_dir = self.output_dir + "/" + fname
+                        print self.output_dir
                         if not os.path.isdir(self.output_dir + "/" ):
+                            print "Createing dir: ",  self.output_dir
                             os.makedirs(self.output_dir +"/");
 
                         # Init CSV

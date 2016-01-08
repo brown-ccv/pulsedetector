@@ -14,8 +14,8 @@ import matplotlib.pyplot as plt
 from scipy import interpolate, fftpack
 import scipy.io.wavfile as wav
 
-from sklearn import preprocessing
-from sklearn.decomposition import FastICA
+# from sklearn import preprocessing
+# from sklearn.decomposition import FastICA
 
 from lib.device import Video
 import lib.signal_process_util as sp_util
@@ -385,9 +385,9 @@ class getPulseFromFileApp(object):
                            subplot_audio = False)
 
     def compute_ica(self, data):
-        ica = FastICA()
-        self.S_ = ica.fit(data).transform(data)  # Get the estimated sources
-        self.A_ = ica.mixing_  # Get estimated mixing matrix
+        # ica = FastICA()
+        # self.S_ = ica.fit(data).transform(data)  # Get the estimated sources
+        # self.A_ = ica.mixing_  # Get estimated mixing matrix
 
         return self.S_, self.A_
 

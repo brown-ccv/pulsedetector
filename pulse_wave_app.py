@@ -6,7 +6,7 @@
 # @Last Modified time: 2015-04-05 11:09:33
 
 
-import sys
+import sys, os
 import Tkinter
 import ttk
 import tkFileDialog
@@ -21,6 +21,12 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolb
 import matplotlib.pyplot as plt
 import lib.pulse_align_ios
 from lib.pulse_align_ios import getPulseWaveFromFileApp
+
+from get_pulse import getPulseApp
+
+import lib.video_process_util as vidPro
+
+
 
 class StdoutRedirector(object):
     def __init__(self,text_widget):
@@ -41,12 +47,12 @@ class Application(Tkinter.Frame):
 
         # define options for opening or saving a file
         self.file_opt = options = {}
-        options['defaultextension'] = '.txt'
-        options['filetypes'] = [('all files', '.*'), ('movie files', '.mp4')]
-        options['initialdir'] = 'C:\\'
-        options['initialfile'] = 'myfile.mp4'
+        options['defaultextension'] = ''
+        options['filetypes'] = [('all files', '.*'), ('movie files', '.mp4'), ('data files', '.npy'), ('text files', '.txt')]
+        options['initialdir'] = ''
+        options['initialfile'] = ''
         options['parent'] = master
-        options['title'] = 'Choose Video File'
+        options['title'] = 'Choose File'
 
         self.createWidgets()
 
@@ -73,11 +79,11 @@ class Application(Tkinter.Frame):
         # helpLbl = Tkinter.Label(helpLf, text="Help will come - ask for it.")
         # helpLbl.grid(row=0)
 
-        stepTwo = Tkinter.LabelFrame(self, text=" 2. Process: ")
+        stepTwo = Tkinter.LabelFrame(self, text=" 2. Processing: ")
         stepTwo.grid(row=2, columnspan=numCols, sticky='WE', \
                      padx=5, pady=5, ipadx=5, ipady=5)
 
-        self.stepThree = Tkinter.LabelFrame(self, text=" 3. Display Plot: ")
+        self.stepThree = Tkinter.LabelFrame(self, text=" 3. Visualization: ")
         self.stepThree.grid(row=3, columnspan=numCols, sticky='WE', \
                        padx=5, pady=5, ipadx=5, ipady=5)
 
@@ -87,29 +93,43 @@ class Application(Tkinter.Frame):
 
         self.inFileTxt = Tkinter.Entry(stepOne)
         self.inFileTxt.grid(row=0, column=1, columnspan=30, sticky="WE", pady=3)
-        # self.videofile = '/Users/isa/GoogleDrive/VACUScan/Research/Data/20150222_Epi_trial/Ben_2015.2.22_anteriorLeftAntebrachium_1.mp4'
-        # self.inFileTxt.insert(0, self.videofile)
+        self.videofile = '/Users/isa/Desktop/ben-test/VID_20150915_123758391.mp4'
+        self.inFileTxt.insert(0, self.videofile)
 
-
-        inFileBtn = Tkinter.Button(stepOne, text="Browse ...", command=self.askopenfilename)
+        inFileBtn = Tkinter.Button(stepOne, text="Browse ...", command=self.askopenVideoFile)
         inFileBtn.grid(row=0, column=31, sticky='E', padx=5, pady=2)
 
+        inDataFileLbl = Tkinter.Label(stepOne, text="Select Data File:")
+        inDataFileLbl.grid(row=1, column=0, sticky='W', padx=5, pady=2)
+
+        self.inDataFileTxt = Tkinter.Entry(stepOne)
+        self.inDataFileTxt.grid(row=1, column=1, columnspan=30, sticky="WE", pady=3)
+        # self.datafile = '/Users/isa/Desktop/ben-test-results/VID_20150915_123720605/rgb-50-1.npy'
+        # self.inDataFileTxt.insert(0, self.datafile)
+
+        inDataFileBtn = Tkinter.Button(stepOne, text="Browse ...", command=self.askopenDataFile)
+        inDataFileBtn.grid(row=1, column=31, sticky='E', padx=5, pady=2)
+
         outFileLbl = Tkinter.Label(stepOne, text="Output Directory:")
-        outFileLbl.grid(row=1, column=0, sticky='W', padx=5, pady=2)
+        outFileLbl.grid(row=2, column=0, sticky='W', padx=5, pady=2)
 
         self.outDirTxt = Tkinter.Entry(stepOne)
-        self.outDirTxt.grid(row=1, column=1, columnspan=30, sticky="WE", pady=2)
-        # self.outputDir = '/Users/isa/Desktop/tests'
-        # self.outDirTxt.insert(0, self.outputDir)
+        self.outDirTxt.grid(row=2, column=1, columnspan=30, sticky="WE", pady=2)
+        self.outputDir = '/Users/isa/Desktop/tests'
+        self.outDirTxt.insert(0, self.outputDir)
 
         outFileBtn = Tkinter.Button(stepOne, text="Browse ...", command=self.askopendirectory)
-        outFileBtn.grid(row=1, column=31, sticky='E', padx=5, pady=2)
+        outFileBtn.grid(row=2, column=31, sticky='E', padx=5, pady=2)
 
         #*************** Step 2 Widgets *****************************
 
+        preprocessBtn = Tkinter.Button(stepTwo, text="Generate Data File", \
+                                    command=self.preProcess)
+        preprocessBtn.grid(row=5, column=0, sticky='W', padx=5, pady=2)
+
         processBtn = Tkinter.Button(stepTwo, text="Process", \
                                     command=self.findPulse)
-        processBtn.grid(row=4, column=0, sticky='W', padx=5, pady=2)
+        processBtn.grid(row=5, column=5, sticky='W', padx=5, pady=2)
 
         # getFldChk = Tkinter.Checkbutton(stepTwo, \
         #                        text="Save results to disk",\
@@ -174,7 +194,7 @@ class Application(Tkinter.Frame):
 
 
 
-    def askopenfilename(self):
+    def askopenVideoFile(self):
 
       """Gets filename. The file needs to be opened by your own code.
       """
@@ -183,6 +203,16 @@ class Application(Tkinter.Frame):
       self.videofile = tkFileDialog.askopenfilename(**self.file_opt)
       self.inFileTxt.delete(0, Tkinter.END)
       self.inFileTxt.insert(0, self.videofile)
+
+    def askopenDataFile(self):
+
+      """Gets filename. The file needs to be opened by your own code.
+      """
+
+      # get filename
+      self.datafile = tkFileDialog.askopenfilename(**self.file_opt)
+      self.inDataFileTxt.delete(0, Tkinter.END)
+      self.inDataFileTxt.insert(0, self.datafile)
 
 
     def askopendirectory(self):
@@ -195,12 +225,37 @@ class Application(Tkinter.Frame):
       self.outDirTxt.delete(0, Tkinter.END)
       self.outDirTxt.insert(0, self.outputDir)
 
+
+    def preProcess(self):
+        """Traverses a video file, reads color values and
+        saves them to a fil
+        """
+
+        filename , fileext = os.path.splitext(self.videofile)
+        newVideoFile = filename + '_halfed' + '.mov'
+        print "Resizing ",  self.videofile, " to ", newVideoFile
+
+        # vidPro.resize(self.videofile, newVideoFile, 0.5)
+        
+        print "Extracting average info across video"
+
+        App = getPulseApp(videofile   =  filename + '_halfed' + '.mov',
+                          roi_percent =  0.5,
+                          find_faces  =  False,
+                          color_space =  'rgb',
+                          output_dir  =  self.outputDir,
+                          no_gui      =  True,
+                          grid_size   =  1)
+
+        App.run()
+
     def findPulse(self):
         # self.videofile = self.inFileTxt.get
         self.pulseApp = getPulseWaveFromFileApp(videofile   =  self.videofile,
-                                           output_dir  =  self.outputDir)
+                                                datafile = self.datafile,
+                                                output_dir  =  self.outputDir)
 
-       
+        print "Done 5 "
         print 'Smoothing Data'
         self.pulseApp.smooth_data()
         self.pulseApp.plot_bandpass_data(smooth_data_fig=self.smooth_data_fig)

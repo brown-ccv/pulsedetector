@@ -80,7 +80,7 @@ def process(**kwargs):
 
       for roi_percent in all_roi_percents:
 
-          print "Processing:"
+          print "Processing: " + str(len(files)) + " files"
           # for videofile, audiofile in zip(files, audio_files):
           for f_idx in range(0, len(files)):
               videofile = files[f_idx]

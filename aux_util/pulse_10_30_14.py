@@ -13,10 +13,10 @@ if __name__ == '__main__':
     sys.path.append('../')
     from batch_process import process
 
-    data_date = '10_30_14'
-    data_dir = "/Users/isa/GoogleDrive/VACUScan/Research/Data/VideoData10_30_14"
-    output_dir = '/Users/isa/Dropbox/Experiments/VacuScan-develop/' + data_date
-    files = [ 'AnteriorThigh']
+    # data_date = '10_30_14'
+    # data_dir = "/Users/isa/GoogleDrive/VACUScan/Research/Data/VideoData10_30_14"
+    # output_dir = '/Users/isa/Dropbox/Experiments/VacuScan-develop/' + data_date
+    # files = [ 'AnteriorThigh']
     # files = ['AnteriorCrus', 'AnteriorThigh', 'DorsalFoot', 'Palm']
 
 
@@ -25,20 +25,25 @@ if __name__ == '__main__':
     # output_dir = '/Users/isa/Dropbox/Experiments/VacuScan-develop/5-13-2014'
     # files = ['IMG_0472']
 
+    data_dir = '/Users/isa/Desktop/ben-test'
+    output_dir = '/Users/isa/Desktop/ben-test-results'
+    files = ['VID_20150915_123720605']
+
 
     audio_data_dir = data_dir
 
     for f in files:
         process (   batch_process = True,
-                    process_data = False,
-                    plot_raw_data = True,
-                    plot_data = True,
+                    process_data = True,
+                    plot_raw_data = False,
+                    plot_data = False,
                     all_roi_percents = [0.5],
                     data_dir = data_dir,
                     output_dir = output_dir,
-                    audio_data_dir = data_dir,
-                    files_prefix ='/' + f + '.MOV',
+                    audio_data_dir = data_dir, 
+                    files_prefix ='/' + f + '.mp4',
                     audio_files_prefix = '/' + f + '.wav',
                     time_intervals = [[15,20]],
-                    plot_data_interval = [15,20]);
+                    plot_data_interval = [15,20],
+                    no_gui= True);
 

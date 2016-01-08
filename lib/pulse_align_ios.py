@@ -9,6 +9,7 @@
 import argparse, os
 import math
 import numpy as np
+import itertools
 from scipy.signal import butter, lfilter
 import matplotlib
 # matplotlib.use('macosx')
@@ -57,10 +58,13 @@ class getPulseWaveFromFileApp(object):
 
         # Parse inputs
         videofile = kwargs.get('videofile', '' )
+        datafile = kwargs.get('datafile', '' )
         audiofile = kwargs.get('audiofile', None)
         self.output_dir = kwargs.get('output_dir', '')
         self.param_suffix = kwargs.get('param_suffix', 'rgb-20')
         bandpass = kwargs.get('bandpass', True)
+        self.starttime = kwargs.get('starttime', 0) #expects seconds
+        self.endtime = kwargs.get('endtime', None) #expects seconds - error if past available data 
         self.fname = None
         self.data = [];
 
@@ -77,43 +81,93 @@ class getPulseWaveFromFileApp(object):
             if not os.path.isdir(self.output_dir + "/" ):
                 os.makedirs(self.output_dir +"/");
 
-            self.fig_pdf = PdfPages(self.output_dir + '/pulses.pdf')
+            self.fig_pdf = PdfPages(self.output_dir + '/pulses'+str(self.starttime)+'_'+ str(self.endtime)+'.pdf')
 
-            csv_fin= os.path.splitext(videofile)[0] + ".txt"
-            csv_fid_in = open( csv_fin , 'r' )
-            # self.fps = float(csv_fid_in.readlines()[3])
-            # print "Video FPS: ", str(self.fps)
-            # csv_fid_in.seek(0) #reset file pointer
-            data_ios = np.genfromtxt(csv_fid_in, dtype=float, delimiter=' ', skip_header=0, usecols={2,3,4});
-            print "Done reading data of size: " , data_ios.shape
+            if( not os.path.isfile(datafile)):
 
-            self.nframes = data_ios.shape[0]
-            self.nvals = 4 #time + 3 channels
-            self.grid_size = 1 #for now the entire frame
-            self.grid_side = math.ceil((self.grid_size/2.0 + 0.2))
-            self.data = np.zeros([self.nframes, self.grid_size, self.nvals])
-            self.data_bandpass = np.zeros([self.nframes, self.grid_size, self.nvals])
+                #TODO: if user forgot data file check if there was a txt with the same name
 
-            csv_fid_in.close()
-
-            video = Video(videofile)
-            if video.valid:
-				self.fps = video.fps
-				video.release()
-				print "FPS: ", self.fps
-				#if time stamps weren't written to file, then add them
-				self.time = np.arange(0,self.data.shape[0]*self.fps, self.fps)
-				print "timestamps size: " , self.time.shape
-				self.data[:,0,:]=np.hstack((self.time.reshape((self.data.shape[0], 1)), data_ios))
-				print "Done appending time -- size: " , self.data.shape
+            	print "Error: App needs a datafile"
+            	exit()
+          
+            data_file_extension = os.path.splitext(datafile)[1]
+            if data_file_extension == '.txt':
+            	with open( datafile ) as t_in:
 
 
-				if bandpass:
-				    shape = self.data.shape
-				    for grid_idx in xrange(0,shape[1]):
-				        self.data_bandpass[:, grid_idx] = sp_util.bandpass(self.data[:, grid_idx], self.fps, lowcut, highcut)
-				        #whiten the data
-				        self.data_bandpass[:, grid_idx] = whiten(self.data_bandpass[:, grid_idx])
+                    #csv_fid_in.close()
+
+                    video = Video(videofile)
+                    if video.valid:
+                        self.fps = video.fps
+                        video.release()
+                        print "FPS: ", self.fps
+
+                        #*******Read Data File************************
+                        stoprow = int(self.endtime*self.fps);
+                        startrow = int(self.starttime*self.fps)
+                        data_raw = np.genfromtxt(itertools.islice(t_in, stoprow) , dtype=float, delimiter=' ', 
+                                                 skip_header=startrow, usecols={2,3,4})
+
+                        print "Done reading data from txt of size: " , data_raw.shape
+
+                        self.nframes = data_raw.shape[0]
+                        self.nvals = 4 #time + 3 channels
+                        self.grid_size = 1 #for now the entire frame
+                        self.grid_side = math.ceil((self.grid_size/2.0 + 0.2))
+                        self.data = np.zeros([self.nframes, self.grid_size, self.nvals])
+                        self.data_bandpass = np.zeros([self.nframes, self.grid_size, self.nvals])
+                        #*******End Read Data File************************#
+
+
+                        #if time stamps weren't written to file, then add them
+                        self.time = np.arange(0,self.data.shape[0]*self.fps, self.fps)
+                        print "timestamps size: " , self.time.shape
+                        self.data[:,0,:]=np.hstack((self.time.reshape((self.data.shape[0], 1)), data_raw))
+                        print "Done appending time -- size: " , self.data.shape
+
+
+                    if bandpass:
+                        shape = self.data.shape
+                        for grid_idx in xrange(0,shape[1]):
+                            self.data_bandpass[:, grid_idx] = sp_util.bandpass(self.data[:, grid_idx], self.fps, lowcut, highcut)
+                            #whiten the data
+                            self.data_bandpass[:, grid_idx] = whiten(self.data_bandpass[:, grid_idx])
+
+            if data_file_extension == '.npy':
+                self.data = np.load(datafile)
+                grid_idx = 0
+                # preprocessing saves [time, r, g, b]
+
+                print "Done reading data from pyn of size: " , self.data.shape
+
+                self.nframes = self.data.shape[0]
+                self.nvals = 4 #time + 3 channels
+                self.grid_size = 1 #for now the entire frame
+                self.grid_side = math.ceil((self.grid_size/2.0 + 0.2))
+                #self.data = np.zeros([self.nframes, self.grid_size, self.nvals])
+                self.data_bandpass = np.zeros([self.nframes, self.grid_size, self.nvals])
+
+                video = Video(videofile)
+                if video.valid:
+                    self.fps = video.fps
+                    video.release()
+                    print "FPS: ", self.fps
+                    # we are manually assempling time as if we are not dropping frames
+                    # using actual time stamps is probably better but we need to change
+                    # smooth_data() to take into account possible jumps
+                    self.time = np.arange(0,self.data.shape[0]*self.fps, self.fps)
+                    #self.time = self.data[:,0,0]
+                    print "timestamps size: " , self.time.shape
+
+                if bandpass:
+                    shape = self.data.shape
+                    for grid_idx in xrange(0,shape[1]):
+                            self.data_bandpass[:, grid_idx] = sp_util.bandpass(self.data[:, grid_idx], self.fps, lowcut, highcut)
+                            #whiten the data
+                            self.data_bandpass[:, grid_idx] = whiten(self.data_bandpass[:, grid_idx])
+                            print "Done 2 "
+                    print "Done 3 "
 
         self.audio_time = None
         if audiofile and os.path.exists(audiofile):
@@ -128,7 +182,7 @@ class getPulseWaveFromFileApp(object):
             self.audio_time = np.linspace(0,ts,t_total)
             # if bandpass:
             #     self.audio_data = self.butter_bandpass_filter(self.audio_data, 10, 1000, self.audio_fs, 2)
-
+            print "Done 4 "
 
     def close_fig_pdf(self):
         self.fig_pdf.close()
@@ -225,7 +279,7 @@ class getPulseWaveFromFileApp(object):
         self.norm_avg_pulses =[]
         self.time_normalized = np.linspace(0.0, 1.0, 250)
 
-        pulse_avg_fid = open( self.output_dir + '/avg_pulse.txt', 'w' )
+        pulse_avg_fid = open( self.output_dir + '/avg_pulse'+str(self.starttime)+'_'+ str(self.endtime)+'.txt', 'w' )
 
         for grid_idx in xrange(0, self.grid_size):
 
@@ -353,6 +407,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Pulse waveform characterization from (ios) file')
     parser.add_argument('--videofile', type=str, default=None,
                         help='if loading from video - filename')
+    parser.add_argument('--datafile', type=str, default=None,
+                        help='file containing rgb information either from phone or preprocessing')
     parser.add_argument('--output_dir', type=str, default=None,
                         help="Where to save the results")
     parser.add_argument('--param_suffix', type=str, default='rgb-20',

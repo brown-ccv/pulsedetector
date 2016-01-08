@@ -52,16 +52,17 @@ class Video(object):
         self.valid = False
         try:
             resp = self.video.read()
+            print resp[0]
             self.shape = resp[1].shape
-            self.currFrame = self.video.get(cv2.cv.CV_CAP_PROP_POS_FRAMES)
-            self.numFrames = self.video.get(cv2.cv.CV_CAP_PROP_FRAME_COUNT)
-            self.fps = self.video.get(cv2.cv.CV_CAP_PROP_FPS)
-            self.codec = int(self.video.get(cv2.cv.CV_CAP_PROP_FOURCC))
+            self.currFrame = self.video.get(cv2.CAP_PROP_POS_FRAMES)
+            self.numFrames = self.video.get(cv2.CAP_PROP_FRAME_COUNT)
+            self.fps = self.video.get(cv2.CAP_PROP_FPS)
+            self.codec = int(self.video.get(cv2.CAP_PROP_FOURCC))
             self.valid = True
             print "Succeded openning video file"
         except:
             self.shape = None
-            print "Failed openning video file"
+            print "Failed openning video file: ", filename
             self.release()
 
 
@@ -89,8 +90,9 @@ class Video(object):
 
     def end(self):
         temp = '[' + str(self.currFrame) + '/' + str(self.numFrames)+']'
-        sys.stdout.write(temp)
-        sys.stdout.flush()
+        # sys.stdout.write(temp)
+        # sys.stdout.flush()
+        # print(temp),
 
         if  (abs(self.currFrame - self.numFrames) < 0.2):
             return True
