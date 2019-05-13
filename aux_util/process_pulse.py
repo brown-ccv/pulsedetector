@@ -16,7 +16,7 @@ if __name__ == '__main__':
 
     data_date = '17-10-2018'
     data_dir = "/Users/mmcgrat3/src/pulse-test"
-    output_dir = '/Users/mmcgrat3/src/pulse-test/'
+    output_dir = '/Users/mmcgrat3/src/pulse-test'
     files = [ 'resting-state_2018-10-17_15-21-05_HR-AV']
 
 

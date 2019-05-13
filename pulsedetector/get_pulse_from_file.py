@@ -158,7 +158,6 @@ class getPulseFromFileApp(object):
             audio_ax = None
 
 
-        plt.hold(True);
         plt.axis(tight=True);
 
         #---------------------------------------------------------------

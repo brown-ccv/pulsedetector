@@ -96,12 +96,12 @@ def compute_fft(time, data, Fs):
 
     #------- FFT and ideal filter -------------
     raw = fftpack.fft(data,nfft, axis=0)    #run fft
-    fft = np.abs(raw[0:L/2])                #get magnitude/real part
-    phase = np.angle(raw[0:L/2])
+    fft = np.abs(raw[0:L//2])                #get magnitude/real part
+    phase = np.angle(raw[0:L//2])
 
     # print phase.shape
 
-    freqs = np.linspace(0.0, Fs/2., L/2)    #frequencies
+    freqs = np.linspace(0.0, Fs/2., L//2)    #frequencies
     freqs = 60. * freqs                     #convert to BPM (pulse)
     idx = np.where((freqs > 40) & (freqs < 180)) #ideal filter
 
@@ -350,9 +350,3 @@ def pdf_plot_peaks(x, mph, mpd, threshold, edge, valley, ax, ind, pdf_fig):
 
 
         pdf_fig.savefig()
-
-
-
-
-
-

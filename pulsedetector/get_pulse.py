@@ -122,7 +122,7 @@ class getPulseApp(object):
 
                         #Write Header Info
                         if self.no_gui:
-                            self.csv_fid_out = open( csv_fout , 'w' )
+                            self.csv_fid_out = open( csv_fout , 'wb' )
                             # header = 'format:\ntime ch0 ch1 ch2\n'
                             # self.csv_fid_out.write(header)
                             # self.csv_fid_out.write('fps:\n')
@@ -162,7 +162,7 @@ class getPulseApp(object):
         self.pause = True
 
         if self.use_videofile and video.valid:
-            nframes = video.numFrames;
+            nframes = int(video.numFrames);
         else:
             nframes = 0;
 
