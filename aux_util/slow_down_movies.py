@@ -26,7 +26,7 @@ files = glob.glob(from_dir + '/*45-hsv.mov')
 for this_file  in files:
   fname =  os.path.splitext(os.path.basename(this_file))[0]
   new_file = to_dir + "/" + fname + '-' + str(slow_down_factor) + ".mov"
-  print "Slowing down ",  this_file, " to ", new_file
+  print("Slowing down ",  this_file, " to ", new_file)
   vidPro.slowDown(this_file, new_file, slow_down_factor)
 
 print("Done")

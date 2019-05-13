@@ -24,9 +24,9 @@ class GetPulse(object):
 
     def __init__(self, **kwargs):
 
-        print "Initializing processor with parameters:"
+        print("Initializing processor with parameters:")
         for key in kwargs:
-            print "Argument: %s: %s" % (key, kwargs[key])
+            print("Argument: %s: %s" % (key, kwargs[key]))
 
         # Parse arguments
         self.find_faces = kwargs.get('find_faces', True)
@@ -61,7 +61,7 @@ class GetPulse(object):
         self.bpm = 0
         dpath = resource_path("haarcascade_frontalface_alt.xml")
         if not os.path.exists(dpath):
-            print "Cascade file not present!"
+            print("Cascade file not present!")
         self.face_cascade = cv2.CascadeClassifier(dpath)
 
         #region of interest - maybe face or image rectangle
@@ -79,8 +79,8 @@ class GetPulse(object):
 
     def find_region_toggle(self):
         self.find_region = not self.find_region
-        print 'ROI: ', self.roi
-        print 'SUB-ROI: ', self.sub_roi
+        print('ROI: ', self.roi)
+        print('SUB-ROI: ', self.sub_roi)
         return self.find_region
 
     def get_faces(self):
@@ -131,18 +131,18 @@ class GetPulse(object):
         idx = np.where((freqs > 50) & (freqs < 180))
         pylab.figure()
         n = data.shape[0]
-        for k in xrange(n):
+        for k in range(n):
             pylab.subplot(n, 1, k + 1)
             pylab.plot(self.times, data[k])
         pylab.savefig("data.png")
         pylab.figure()
-        for k in xrange(self.output_dim):
+        for k in range(self.output_dim):
             pylab.subplot(self.output_dim, 1, k + 1)
             pylab.plot(self.times, self.pcadata[k])
         pylab.savefig("data_pca.png")
 
         pylab.figure()
-        for k in xrange(self.output_dim):
+        for k in range(self.output_dim):
             pylab.subplot(self.output_dim, 1, k + 1)
             pylab.plot(freqs[idx], self.fft[k][idx])
         pylab.savefig("data_fft.png")
@@ -292,7 +292,7 @@ class GetPulse(object):
             idx = np.where((freqs > 30) & (freqs < 180))
 
             if not np.sum(idx):
-                print "Skipping: No frequencies in range"
+                print("Skipping: No frequencies in range")
                 self.frame_out = None
                 return
 

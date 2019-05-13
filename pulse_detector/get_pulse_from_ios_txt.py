@@ -19,8 +19,8 @@ import scipy.io.wavfile as wav
 # from sklearn.utils import weight_vector
 # import sklearn.utils.weight_vector
 
-from lib.device import Video
-import lib.signal_process_util as sp_util
+from .lib.device import Video
+from . import lib.signal_process_util as sp_util
 
 
 
@@ -36,9 +36,9 @@ class getPulseFromFileApp(object):
 
     def __init__(self, **kwargs):
 
-        print "Initializing getPulseFromFileApp with parameters:"
+        print("Initializing getPulseFromFileApp with parameters:")
         for key in kwargs:
-            print "Argument: %s: %s" % (key, kwargs[key])
+            print("Argument: %s: %s" % (key, kwargs[key]))
 
         self.fps = 0
         self.use_video=False
@@ -59,7 +59,7 @@ class getPulseFromFileApp(object):
 
 
         if videofile and os.path.exists(videofile):
-            print "Processing file: ", videofile
+            print("Processing file: ", videofile)
             self.use_video = True
             fname =  os.path.splitext(os.path.basename(videofile))[0]
             self.output_dir = self.output_dir + "/" + fname
@@ -74,7 +74,7 @@ class getPulseFromFileApp(object):
             # print "Video FPS: ", str(self.fps)
             # csv_fid_in.seek(0) #reset file pointer
             data_ios = np.genfromtxt(csv_fid_in, dtype=float, delimiter=' ', skip_header=0, usecols={2,3,4});
-            print "Done reading data of size: " , data_ios.shape
+            print("Done reading data of size: " , data_ios.shape)
 
             nframes = data_ios.shape[0]
             nvals = 4 #time + 3 channels
@@ -87,10 +87,10 @@ class getPulseFromFileApp(object):
             if video.valid:
                     self.fps = video.fps
                     video.release()
-                    print "FPS: ", self.fps
+                    print("FPS: ", self.fps)
                     #if time stamps weren't written to file, then add them
                     time_stamps = np.arange(0,self.data.shape[0]*self.fps, self.fps).reshape((self.data.shape[0], 1))
-                    print "timestamps size: " , time_stamps.shape
+                    print("timestamps size: " , time_stamps.shape)
                     self.data[:,0,:]=np.hstack((time_stamps, data_ios))
 
 
@@ -99,12 +99,12 @@ class getPulseFromFileApp(object):
 
 
             # self.data = np.hstack((self.data, time_stamps))
-            print "Done appending time -- size: " , self.data.shape
+            print("Done appending time -- size: " , self.data.shape)
 
 
             if bandpass:
                 shape = self.data.shape
-                for grid_idx in xrange(0,shape[1]):
+                for grid_idx in range(0,shape[1]):
                     self.data[:, grid_idx] = sp_util.bandpass(self.data[:, grid_idx], self.fps, lowcut, highcut)
                     # for val_idx in xrange(1,shape[2]):
                         # npad = int(10*self.fps)
@@ -119,10 +119,10 @@ class getPulseFromFileApp(object):
             # self.data[:,1:5] = preprocessing.scale(self.data[:,1:5])
         self.audio_time = None
         if audiofile and os.path.exists(audiofile):
-            print "Found corresponding audio file: ", audiofile
+            print("Found corresponding audio file: ", audiofile)
             self.use_audio = True
             self.audio_fs, audio_data = wav.read(audiofile)
-            print 'Audio Sampling rate: ', self.audio_fs
+            print('Audio Sampling rate: ', self.audio_fs)
             self.audio_data=abs(audio_data[:,1])
             # lungime=len(y)
             t_total = self.audio_data.shape[0]
@@ -185,7 +185,7 @@ class getPulseFromFileApp(object):
                          label=labels[0])
         else:
 
-            for k in xrange(dim):
+            for k in range(dim):
                 data_ax.plot( x_data, y_data[:,k],
                               color=colors[k],
                               label=labels[k])
@@ -333,10 +333,10 @@ class getPulseFromFileApp(object):
         #              Take Care of VideoSignal:
         #   Compute fft, get max value and attach to plot label
         #---------------------------------------------------------------
-        print "Time:", time
+        print("Time:", time)
         freqs, fft, phase = sp_util.compute_fft(time, data, self.fps)
 
-        print "Done computing fft"
+        print("Done computing fft")
 
         shape = fft.shape
         if len(shape) > 1:
@@ -363,7 +363,7 @@ class getPulseFromFileApp(object):
         fft_audio = None
         if use_audio:
             freqs_audio, fft_audio, phase_audio =   sp_util.compute_fft(audio_time, audio, self.audio_fs)
-            print "Done computing audio fft"
+            print("Done computing audio fft")
 
             bpm_idx = np.argmax(fft_audio)
             label_audio = 'Audio: {:.2f} bpm'.format(freqs_audio[bpm_idx])
@@ -438,8 +438,8 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    print "Running with parameters:"
-    print args
+    print("Running with parameters:")
+    print(args)
 
     App = getPulseFromFileApp (videofile = args.videofile,
                                output_dir = args.output_dir )

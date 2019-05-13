@@ -11,7 +11,7 @@ import time
 import cv2
 import os
 import sys
-import signal_process_util as sp_util
+from . import signal_process_util as sp_util
 
 
 def resource_path(relative_path):
@@ -32,9 +32,9 @@ class GetPulseMC(object):
 
     def __init__(self, **kwargs):
 
-        print "Initializing processor with parameters:"
+        print("Initializing processor with parameters:")
         for key in kwargs:
-            print "Argument: %s: %s" % (key, kwargs[key])
+            print("Argument: %s: %s" % (key, kwargs[key]))
 
         # Parse arguments
         self.find_faces = kwargs.get('find_faces', True)
@@ -86,7 +86,7 @@ class GetPulseMC(object):
         self.bpm = 0
         dpath = resource_path("haarcascade_frontalface_alt.xml")
         if not os.path.exists(dpath):
-            print "Cascade file not present!"
+            print("Cascade file not present!")
         self.face_cascade = cv2.CascadeClassifier(dpath)
 
         self.last_center = np.array([0, 0])
@@ -99,7 +99,7 @@ class GetPulseMC(object):
 
     def find_region_toggle(self):
         self.find_region = not self.find_region
-        print 'ROI: ', self.roi
+        print('ROI: ', self.roi)
         # print 'SUB-ROI: ', self.sub_roi
         return self.find_region
 
@@ -177,7 +177,7 @@ class GetPulseMC(object):
                         self.sub_roi_grid.append(self.get_subface_coord(i, j, self.grid_res, self.grid_res))
                         self.data_buffer_grid.append([])
 
-                print "sub-roi size: ",  len(self.sub_roi_grid)
+                print("sub-roi size: ",  len(self.sub_roi_grid))
 
         else: #finding region is only supported with GUI interface
 
@@ -235,11 +235,11 @@ class GetPulseMC(object):
                     return
 
         if self.roi is None:
-            print "Something went wrong with the roi"
+            print("Something went wrong with the roi")
             return
 
         if len(self.sub_roi_grid) != len(self.data_buffer_grid):
-            print "Something went wrong with ROI and Buffer grids: ", len(self.sub_roi_grid), ' and ', len(self.data_buffer_grid)
+            print("Something went wrong with ROI and Buffer grids: ", len(self.sub_roi_grid), ' and ', len(self.data_buffer_grid))
             return
 
         # write time missing
@@ -251,7 +251,7 @@ class GetPulseMC(object):
                         cv2.FONT_HERSHEY_PLAIN, 1.25*self.draw_scale, col,
                         int(self.draw_scale))
         nroi = len(self.sub_roi_grid)
-        for sub_roi, data_buffer, grid_idx in zip(self.sub_roi_grid, self.data_buffer_grid, xrange(0,nroi)):
+        for sub_roi, data_buffer, grid_idx in zip(self.sub_roi_grid, self.data_buffer_grid, range(0,nroi)):
             # get mean intensity (avg and individual channels)
             v0, v1, v2 = self.get_roi_means(sub_roi)
 
@@ -286,7 +286,7 @@ class GetPulseMC(object):
                     self.freqs, self.fft, phase = sp_util.compute_fft(self.times, self.samples, self.fps)
 
                     if len(self.freqs) == 0:
-                        print "Skipping: No frequencies in range"
+                        print("Skipping: No frequencies in range")
                         self.frame_out = None
                         return
 

@@ -10,6 +10,8 @@ import argparse, os
 
 import numpy as np
 from scipy.signal import butter, lfilter
+import matplotlib
+matplotlib.use('PS')
 import matplotlib.pyplot as plt
 from scipy import interpolate, fftpack
 import scipy.io.wavfile as wav
@@ -18,7 +20,7 @@ import scipy.io.wavfile as wav
 # from sklearn.decomposition import FastICA
 
 from lib.device import Video
-import lib.signal_process_util as sp_util
+from lib import signal_process_util as sp_util
 
 
 
@@ -34,9 +36,9 @@ class getPulseFromFileApp(object):
 
     def __init__(self, **kwargs):
 
-        print "Initializing getPulseFromFileApp with parameters:"
+        print("Initializing getPulseFromFileApp with parameters:")
         for key in kwargs:
-            print "Argument: %s: %s" % (key, kwargs[key])
+            print("Argument: %s: %s" % (key, kwargs[key]))
 
         self.fps = 0
         self.use_video=False
@@ -57,13 +59,13 @@ class getPulseFromFileApp(object):
 
 
         if videofile and os.path.exists(videofile):
-            print "Processing file: ", videofile
+            print("Processing file: ", videofile)
             self.use_video = True
             fname =  os.path.splitext(os.path.basename(videofile))[0]
             self.output_dir = self.output_dir + "/" + fname
 
             if not os.path.isdir(self.output_dir + "/" ):
-                print "Error: Output dir does not exist - ", self.output_dir
+                print("Error: Output dir does not exist - ", self.output_dir)
                 exit()
 
             # csv_fin= self.output_dir + "/" + self.param_suffix + ".txt"
@@ -83,11 +85,11 @@ class getPulseFromFileApp(object):
             self.data = np.load(csv_fin)
 
 
-            print "Done reading data of size: " , self.data.shape
+            print("Done reading data of size: " , self.data.shape)
 
             if bandpass:
                 shape = self.data.shape
-                for grid_idx in xrange(0,shape[1]):
+                for grid_idx in range(0,shape[1]):
                     self.data[:, grid_idx] = sp_util.bandpass(self.data[:, grid_idx], self.fps, lowcut, highcut)
                     # for val_idx in xrange(1,shape[2]):
                         # npad = int(10*self.fps)
@@ -102,10 +104,10 @@ class getPulseFromFileApp(object):
             # self.data[:,1:5] = preprocessing.scale(self.data[:,1:5])
         self.audio_time = None
         if audiofile and os.path.exists(audiofile):
-            print "Found corresponding audio file: ", audiofile
+            print("Found corresponding audio file: ", audiofile)
             self.use_audio = True
             self.audio_fs, audio_data = wav.read(audiofile)
-            print 'Audio Sampling rate: ', self.audio_fs
+            print('Audio Sampling rate: ', self.audio_fs)
             self.audio_data=abs(audio_data[:,1])
             # lungime=len(y)
             t_total = self.audio_data.shape[0]
@@ -168,7 +170,7 @@ class getPulseFromFileApp(object):
                          label=labels[0])
         else:
 
-            for k in xrange(dim):
+            for k in range(dim):
                 data_ax.plot( x_data, y_data[:,k],
                               color=colors[k],
                               label=labels[k])
@@ -316,10 +318,10 @@ class getPulseFromFileApp(object):
         #              Take Care of VideoSignal:
         #   Compute fft, get max value and attach to plot label
         #---------------------------------------------------------------
-        print "Time:", time
+        print("Time:", time)
         freqs, fft, phase = sp_util.compute_fft(time, data, self.fps)
 
-        print "Done computing fft"
+        print("Done computing fft")
 
         shape = fft.shape
         if len(shape) > 1:
@@ -346,7 +348,7 @@ class getPulseFromFileApp(object):
         fft_audio = None
         if use_audio:
             freqs_audio, fft_audio, phase_audio =   sp_util.compute_fft(audio_time, audio, self.audio_fs)
-            print "Done computing audio fft"
+            print("Done computing audio fft")
 
             bpm_idx = np.argmax(fft_audio)
             label_audio = 'Audio: {:.2f} bpm'.format(freqs_audio[bpm_idx])
@@ -421,12 +423,11 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    print "Running with parameters:"
-    print args
+    print("Running with parameters:")
+    print(args)
 
     App = getPulseFromFileApp (videofile = args.videofile,
                                output_dir = args.output_dir )
 
     App.plot_vals(App.data[100:-200,0], App.data[100:-200, 1:5], "data")
     App.plot_fft(App.data[100:-200,:])
-

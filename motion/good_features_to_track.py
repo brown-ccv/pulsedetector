@@ -33,7 +33,7 @@ def goodFeatures2Track (**kwargs):
     video = Video(videofile)
 
     if not video.valid:
-        print "Error: Could not open input video"
+        print("Error: Could not open input video")
         sys.exit()
 
     img_h, img_w, _ = video.shape
@@ -42,7 +42,7 @@ def goodFeatures2Track (**kwargs):
     img_w = img_w / resize_div
 
     if output_dir is None:
-        print "Error: Output dir wasn't given"
+        print("Error: Output dir wasn't given")
         sys.exit()
 
     # Set up output
@@ -58,7 +58,7 @@ def goodFeatures2Track (**kwargs):
     fourcc = cv2.VideoWriter_fourcc('m', 'p', '4', 'v')
     vid_out = cv2.VideoWriter(videofout, fourcc, video.fps, (img_w, img_h))
     if not vid_out.isOpened():
-        print "Error opening video stream"
+        print("Error opening video stream")
         sys.exit()
 
 
@@ -113,8 +113,8 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    print "Running with parameters:"
-    print args
+    print("Running with parameters:")
+    print(args)
 
     goodFeatures2Track( videofile = args.videofile,
                        output_dir = args.output_dir,

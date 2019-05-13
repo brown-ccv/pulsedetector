@@ -1,7 +1,7 @@
 import numpy as np
 import sys
 import cv2
-import urllib2, base64
+import urllib.request, urllib.error, urllib.parse, base64
 
 class ipCamera(object):
 
@@ -9,11 +9,11 @@ class ipCamera(object):
         self.url = url
         auth_encoded = base64.encodestring('%s:%s' % (user, password))[:-1]
 
-        self.req = urllib2.Request(self.url)
+        self.req = urllib.request.Request(self.url)
         self.req.add_header('Authorization', 'Basic %s' % auth_encoded)
 
     def get_frame(self):
-        response = urllib2.urlopen(self.req)
+        response = urllib.request.urlopen(self.req)
         img_array = np.asarray(bytearray(response.read()), dtype=np.uint8)
         frame = cv2.imdecode(img_array, 1)
         return True, frame
@@ -52,17 +52,17 @@ class Video(object):
         self.valid = False
         try:
             resp = self.video.read()
-            print resp[0]
+            print((resp[0]))
             self.shape = resp[1].shape
             self.currFrame = self.video.get(cv2.CAP_PROP_POS_FRAMES)
             self.numFrames = self.video.get(cv2.CAP_PROP_FRAME_COUNT)
             self.fps = self.video.get(cv2.CAP_PROP_FPS)
             self.codec = int(self.video.get(cv2.CAP_PROP_FOURCC))
             self.valid = True
-            print "Succeded openning video file"
+            print("Succeded openning video file")
         except:
             self.shape = None
-            print "Failed openning video file: ", filename
+            print(("Failed openning video file: ", filename))
             self.release()
 
 

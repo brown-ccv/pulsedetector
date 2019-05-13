@@ -18,9 +18,9 @@ def calc_flow(**kwargs):
     sys.path.append('../')
     from lib.device import Video
 
-    print "Running videostab"
+    print("Running videostab")
     for key in kwargs:
-        print "Argument: %s: %s" % (key, kwargs[key])
+        print("Argument: %s: %s" % (key, kwargs[key]))
 
     # Parse inputs
     videofile = kwargs.get('videofile', '')
@@ -32,13 +32,13 @@ def calc_flow(**kwargs):
     video = Video(videofile)
 
     if not video.valid:
-        print "Error: Could not open input video"
+        print("Error: Could not open input video")
         sys.exit()
 
     img_h, img_w, _ = video.shape
 
     if output_dir is None:
-        print "Error: Output dir wasn't given"
+        print("Error: Output dir wasn't given")
         sys.exit()
 
     # Set up output
@@ -55,7 +55,7 @@ def calc_flow(**kwargs):
     hsv_vid_out = cv2.VideoWriter(hsv_videofout, fourcc, video.fps, (img_w, img_h))
 
     if not (flow_vid_out.isOpened() and hsv_vid_out.isOpened()):
-        print "Error opening output video streams"
+        print("Error opening output video streams")
         sys.exit()
 
 
@@ -100,12 +100,12 @@ def calc_flow(**kwargs):
                 break
             if ch == ord('1'):
                 show_hsv = not show_hsv
-                print 'HSV flow visualization is', ['off', 'on'][show_hsv]
+                print('HSV flow visualization is', ['off', 'on'][show_hsv])
             if ch == ord('2'):
                 show_glitch = not show_glitch
                 if show_glitch:
                     cur_glitch = img.copy()
-                print 'glitch is', ['off', 'on'][show_glitch]
+                print('glitch is', ['off', 'on'][show_glitch])
 
 
     cv2.destroyAllWindows()
@@ -166,8 +166,8 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    print "Running with parameters:"
-    print args
+    print("Running with parameters:")
+    print(args)
 
     calc_flow ( videofile = args.videofile,
                 output_dir = args.output_dir,

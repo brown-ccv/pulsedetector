@@ -60,15 +60,15 @@ class getPulseApp(object):
         self.csv_fid_out = None
         self.vid_out = None
 
-        print "get-pulse, video file: " + videofile
+        print(("get-pulse, video file: " + videofile))
         if videofile and os.path.exists(videofile):
 
             self.use_videofile = True
-            print 'get-pulse: Using video'
+            print('get-pulse: Using video')
 
         if self.save_output:
             if self.output_dir is None:
-                print "Output won't be save: No output directory given"
+                print("Output won't be save: No output directory given")
                 self.save_output = False
 
         # self.send_serial = False
@@ -101,18 +101,18 @@ class getPulseApp(object):
         self.fixed_fps = None
         if self.use_videofile:
             video = Video(videofile)
-            
+
             if video.valid or not len(self.captures):
                     self.captures.append(video)
                     self.fixed_fps = video.fps
                     print('Here')
-                    print  (self.output_dir is not None)
+                    print((self.output_dir is not None))
                     if self.output_dir is not None:
                         fname =  os.path.splitext(os.path.basename(videofile))[0]
                         self.output_dir = self.output_dir + "/" + fname
-                        print self.output_dir
+                        print((self.output_dir))
                         if not os.path.isdir(self.output_dir + "/" ):
-                            print "Createing dir: ",  self.output_dir
+                            print(("Createing dir: ",  self.output_dir))
                             os.makedirs(self.output_dir +"/");
 
                         # Init CSV
@@ -137,16 +137,16 @@ class getPulseApp(object):
                             # print video.codec
                             self.vid_out = cv2.VideoWriter(video_fout, fourcc, self.fixed_fps, (video.shape[1], video.shape[0]))
                             if not self.vid_out.isOpened():
-                                print "Error opening video stream"
+                                print("Error opening video stream")
         else:
-            for i in xrange(3):
+            for i in range(3):
                 camera = Camera(camera=i)  # first camera by default
                 if camera.valid or not len(self.captures):
                     self.captures.append(camera)
                 else:
                     break
 
-            print 'Number of webcams: ', len(self.captures)
+            print(('Number of webcams: ', len(self.captures)))
 
         #Set up viewing window size
         self.max_view_w = 1024.0
@@ -242,14 +242,14 @@ class getPulseApp(object):
         state = self.processor.find_region_toggle()
         # state_face = self.processor.find_faces
         # state_rect = self.processor.find_rectangle
-        print "region detection lock =", not state
+        print(("region detection lock =", not state))
         # print "find_face =",  state_face
         # print "find_rectangle =",  state_rect
 
     # Pause/ Play video
     def toggle_pause(self):
         self.pause = not self.pause
-        print "Video Paused = ", self.pause
+        print(("Video Paused = ", self.pause))
 
     # Turn on/off display data and fft
     def toggle_display_plot(self):
@@ -257,11 +257,11 @@ class getPulseApp(object):
         Toggles the data display.
         """
         if self.bpm_plot:
-            print "bpm plot disabled"
+            print("bpm plot disabled")
             self.bpm_plot = False
             destroyWindow(self.plot_title)
         else:
-            print "bpm plot enabled"
+            print("bpm plot enabled")
             if self.processor.find_region:
                 self.toggle_search()
             self.bpm_plot = True
@@ -296,7 +296,7 @@ class getPulseApp(object):
 
         self.pressed = waitKey(10) & 255  # wait for keypress for 10 ms
         if self.pressed == 27:  # exit program on 'esc'
-            print "Exiting"
+            print("Exiting")
             for cap in self.captures:
                 cap.release()
             if self.send_serial:
@@ -305,7 +305,7 @@ class getPulseApp(object):
                 self.vid_out.release()
             sys.exit()
 
-        for key in self.key_controls.keys():
+        for key in list(self.key_controls.keys()):
             if chr(self.pressed) == key:
                 self.key_controls[key]()
 
@@ -314,7 +314,7 @@ class getPulseApp(object):
 
         if self.no_gui:
             if self.use_videofile :
-                print "Starting App with No Gui"
+                print("Starting App with No Gui")
                 while self.valid:
                     self.main_loop_no_gui()
 
@@ -322,11 +322,11 @@ class getPulseApp(object):
                     self.write_csv()
                     self.csv_fid_out.close()
 
-                print "Finished"
+                print("Finished")
                         # break
 
         else:
-            print "Starting App"
+            print("Starting App")
             while True:
                 if self.main_loop() is None:
                     continue
@@ -395,7 +395,7 @@ class getPulseApp(object):
 
         #If reached end of video - exit
         if self.captures[self.selected_cap].end():
-            print "Reached end of video"
+            print("Reached end of video")
             self.valid = False
             return
 
@@ -447,8 +447,8 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    print "Running with parameters:"
-    print args
+    print("Running with parameters:")
+    print(args)
 
     App = getPulseApp(  videofile   =  args.videofile,
                         serial      =  args.serial,
@@ -464,5 +464,3 @@ if __name__ == "__main__":
                         save_output =  args.save_output)
 
     App.run()
-
-

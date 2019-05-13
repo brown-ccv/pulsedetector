@@ -16,9 +16,9 @@ def videostab (**kwargs):
     exe_path = '/Users/isa/Dropbox/Projects/pulse_detector/cpp/bin/release/motion'
     default_exe = exe_path + "/videostab1"
 
-    print "Running videostab"
+    print("Running videostab")
     for key in kwargs:
-        print "Argument: %s: %s" % (key, kwargs[key])
+        print("Argument: %s: %s" % (key, kwargs[key]))
 
     # Parse inputs
     exe = kwargs.get('exe', default_exe )
@@ -37,7 +37,7 @@ def videostab (**kwargs):
         if not os.path.isdir(output_dir + "/" ):
             os.makedirs(output_dir +"/");
     else:
-        print "Error: No output directory given"
+        print("Error: No output directory given")
         sys.exit()
 
     nkps_arg = "--nkps="+ str(int(max_corners))
@@ -84,8 +84,8 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    print "Running with parameters:"
-    print args
+    print("Running with parameters:")
+    print(args)
 
     videostab( videofile = args.videofile,
                output_dir = args.output_dir,

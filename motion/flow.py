@@ -28,7 +28,7 @@ hsv[...,1] = 255
 fourcc = cv2.VideoWriter_fourcc('m', 'p', '4', 'v')
 vid_out = cv2.VideoWriter(videofout, fourcc, video.fps, (video.shape[1]/4, video.shape[0]/4))
 if not vid_out.isOpened():
-    print "Error opening video stream"
+    print("Error opening video stream")
 
 while(not video.end()):
     frame2 = video.get_frame()

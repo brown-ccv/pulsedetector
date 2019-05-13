@@ -5,9 +5,9 @@
 # @Last Modified by:   Isa Restrepo
 # @Last Modified time: 2014-06-02 16:19:23
 
-from lib.device import Camera, Video
-from lib.processors import GetPulse
-from lib.interface import plotXY, imshow, waitKey, destroyWindow
+from .lib.device import Camera, Video
+from .lib.processors import GetPulse
+from .lib.interface import plotXY, imshow, waitKey, destroyWindow
 from cv2 import moveWindow
 import argparse
 import numpy as np
@@ -69,7 +69,7 @@ class getPulseApp(object):
                     self.captures.append(video)
                     self.fixed_fps = video.fps
         else:
-            for i in xrange(3):
+            for i in range(3):
                 camera = Camera(camera=i)  # first camera by default
                 if camera.valid or not len(self.captures):
                     self.captures.append(camera)
@@ -136,7 +136,7 @@ class getPulseApp(object):
         fn = fn.replace(":", "_").replace(".", "_")
         data = np.vstack((self.processor.times, self.processor.samples)).T
         np.savetxt(fn + ".csv", data, delimiter=',')
-        print "Writing csv"
+        print("Writing csv")
 
     def toggle_search(self):
         """
@@ -148,7 +148,7 @@ class getPulseApp(object):
         state = self.processor.find_region_toggle()
         # state_face = self.processor.find_faces
         # state_rect = self.processor.find_rectangle
-        print "region detection lock =", not state
+        print("region detection lock =", not state)
         # print "find_face =",  state_face
         # print "find_rectangle =",  state_rect
 
@@ -157,11 +157,11 @@ class getPulseApp(object):
         Toggles the data display.
         """
         if self.bpm_plot:
-            print "bpm plot disabled"
+            print("bpm plot disabled")
             self.bpm_plot = False
             destroyWindow(self.plot_title)
         else:
-            print "bpm plot enabled"
+            print("bpm plot enabled")
             if self.processor.find_region:
                 self.toggle_search()
             self.bpm_plot = True
@@ -194,14 +194,14 @@ class getPulseApp(object):
 
         self.pressed = waitKey(10) & 255  # wait for keypress for 10 ms
         if self.pressed == 27:  # exit program on 'esc'
-            print "Exiting"
+            print("Exiting")
             for cap in self.captures:
                 cap.release()
             if self.send_serial:
                 self.serial.close()
             sys.exit()
 
-        for key in self.key_controls.keys():
+        for key in list(self.key_controls.keys()):
             if chr(self.pressed) == key:
                 self.key_controls[key]()
 
@@ -280,8 +280,8 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    print "Running with parameters:"
-    print args
+    print("Running with parameters:")
+    print(args)
 
     App = getPulseApp(args)
     while True:

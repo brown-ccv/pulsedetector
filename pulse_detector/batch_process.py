@@ -6,8 +6,8 @@
 # @Last Modified time: 2014-11-03 16:42:05
 # Batch processing of videos
 
-from get_pulse import getPulseApp
-from get_pulse_from_file import getPulseFromFileApp
+from .get_pulse import getPulseApp
+from .get_pulse_from_file import getPulseFromFileApp
 import glob
 
 # batch_process = False
@@ -80,7 +80,7 @@ def process(**kwargs):
 
       for roi_percent in all_roi_percents:
 
-          print "Processing: " + str(len(files)) + " files"
+          print(("Processing: " + str(len(files)) + " files"))
           # for videofile, audiofile in zip(files, audio_files):
           for f_idx in range(0, len(files)):
               videofile = files[f_idx]
@@ -90,12 +90,12 @@ def process(**kwargs):
 
               # audiofile = os.path.splitext(videofile)[0] + '.wav'
               # audiofile = None
-              print videofile
-              print audiofile
+              print(videofile)
+              print(audiofile)
 
               # Extract average intensity in roi
               if process_data:
-                  print "Extracting average info across video"
+                  print("Extracting average info across video")
 
                   App = getPulseApp(videofile   =  videofile,
                                     roi_percent =  roi_percent,
@@ -108,7 +108,7 @@ def process(**kwargs):
                   App.run()
 
               if plot_raw_data:
-                  print "Plotting raw data"
+                  print("Plotting raw data")
                   # channels = range(1,5)
                   colors = ['Green']
                   labels = ['VacuScore']
@@ -136,7 +136,7 @@ def process(**kwargs):
 
               if plot_data:
 
-                  print "Creating plots"
+                  print("Creating plots")
                   # channels = range(1,4)
                   # colors = [ 'Blue', 'Green', 'Red']
                   # labels = [ 'Blue', 'Green', 'Red']
@@ -227,7 +227,3 @@ def process(**kwargs):
                                     suffix = 'ica-fft-[{0:0.0f}-{1:0.0f}]'.format(ti[0], ti[1]),
                                     labels = ica_labels,
                                     colors = ica_colors)
-
-
-
-

@@ -27,8 +27,8 @@ if __name__ == "__main__":
                         help='Image resize factor')
 
     args = parser.parse_args()
-    print "Running with parameters:"
-    print args
+    print("Running with parameters:")
+    print(args)
 
     from_dir = "/Users/isa/Dropbox/data/VACUScan/" + args.date
     to_dir = "/Users/isa/Data/VacuScan/half_size/" + args.date
@@ -40,7 +40,7 @@ if __name__ == "__main__":
 
     for this_file  in files:
         new_file = to_dir + "/" + os.path.basename(this_file)
-        print "Resizing ",  this_file, " to ", new_file
+        print("Resizing ",  this_file, " to ", new_file)
         vidPro.resize(this_file, new_file, args.resize_factor)
         if args.copy_audio:
             fname =  os.path.splitext(os.path.basename(this_file))[0]

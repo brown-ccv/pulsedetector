@@ -23,10 +23,10 @@ import scipy.io.wavfile as wav
 # # from sklearn import preprocessing
 # # from sklearn.decomposition import FastICA
 
-import device
-from device import Video
-import signal_process_util as sp_util
-from signal_process_util import detect_peaks
+from . import device
+from .device import Video
+from . import signal_process_util as sp_util
+from .signal_process_util import detect_peaks
 
 
 
@@ -44,9 +44,9 @@ class getPulseWaveFromFileApp(object):
     def __init__(self, **kwargs):
 
         i=0
-        print "Initializing getPulseFromFileApp with parameters:"
+        print("Initializing getPulseFromFileApp with parameters:")
         for key in kwargs:
-            print "Argument: %s: %s" % (key, kwargs[key])
+            print("Argument: %s: %s" % (key, kwargs[key]))
 
         self.fps = 0
         self.use_video=False
@@ -73,7 +73,7 @@ class getPulseWaveFromFileApp(object):
         self.good_pulse_fig = None
 
         if videofile and os.path.exists(videofile):
-            print "Processing file: ", videofile
+            print("Processing file: ", videofile)
             self.use_video = True
             fname =  os.path.splitext(os.path.basename(videofile))[0]
             self.output_dir = self.output_dir + "/" + fname
@@ -87,7 +87,7 @@ class getPulseWaveFromFileApp(object):
 
                 #TODO: if user forgot data file check if there was a txt with the same name
 
-            	print "Error: App needs a datafile"
+            	print("Error: App needs a datafile")
             	exit()
           
             data_file_extension = os.path.splitext(datafile)[1]
@@ -101,7 +101,7 @@ class getPulseWaveFromFileApp(object):
                     if video.valid:
                         self.fps = video.fps
                         video.release()
-                        print "FPS: ", self.fps
+                        print("FPS: ", self.fps)
 
                         #*******Read Data File************************
                         stoprow = int(self.endtime*self.fps);
@@ -109,7 +109,7 @@ class getPulseWaveFromFileApp(object):
                         data_raw = np.genfromtxt(itertools.islice(t_in, stoprow) , dtype=float, delimiter=' ', 
                                                  skip_header=startrow, usecols={2,3,4})
 
-                        print "Done reading data from txt of size: " , data_raw.shape
+                        print("Done reading data from txt of size: " , data_raw.shape)
 
                         self.nframes = data_raw.shape[0]
                         self.nvals = 4 #time + 3 channels
@@ -122,14 +122,14 @@ class getPulseWaveFromFileApp(object):
 
                         #if time stamps weren't written to file, then add them
                         self.time = np.arange(0,self.data.shape[0]*self.fps, self.fps)
-                        print "timestamps size: " , self.time.shape
+                        print("timestamps size: " , self.time.shape)
                         self.data[:,0,:]=np.hstack((self.time.reshape((self.data.shape[0], 1)), data_raw))
-                        print "Done appending time -- size: " , self.data.shape
+                        print("Done appending time -- size: " , self.data.shape)
 
 
                     if bandpass:
                         shape = self.data.shape
-                        for grid_idx in xrange(0,shape[1]):
+                        for grid_idx in range(0,shape[1]):
                             self.data_bandpass[:, grid_idx] = sp_util.bandpass(self.data[:, grid_idx], self.fps, lowcut, highcut)
                             #whiten the data
                             self.data_bandpass[:, grid_idx] = whiten(self.data_bandpass[:, grid_idx])
@@ -139,7 +139,7 @@ class getPulseWaveFromFileApp(object):
                 grid_idx = 0
                 # preprocessing saves [time, r, g, b]
 
-                print "Done reading data from pyn of size: " , self.data.shape
+                print("Done reading data from pyn of size: " , self.data.shape)
 
                 self.nframes = self.data.shape[0]
                 self.nvals = 4 #time + 3 channels
@@ -152,29 +152,29 @@ class getPulseWaveFromFileApp(object):
                 if video.valid:
                     self.fps = video.fps
                     video.release()
-                    print "FPS: ", self.fps
+                    print("FPS: ", self.fps)
                     # we are manually assempling time as if we are not dropping frames
                     # using actual time stamps is probably better but we need to change
                     # smooth_data() to take into account possible jumps
                     self.time = np.arange(0,self.data.shape[0]*self.fps, self.fps)
                     #self.time = self.data[:,0,0]
-                    print "timestamps size: " , self.time.shape
+                    print("timestamps size: " , self.time.shape)
 
                 if bandpass:
                     shape = self.data.shape
-                    for grid_idx in xrange(0,shape[1]):
+                    for grid_idx in range(0,shape[1]):
                             self.data_bandpass[:, grid_idx] = sp_util.bandpass(self.data[:, grid_idx], self.fps, lowcut, highcut)
                             #whiten the data
                             self.data_bandpass[:, grid_idx] = whiten(self.data_bandpass[:, grid_idx])
-                            print "Done 2 "
-                    print "Done 3 "
+                            print("Done 2 ")
+                    print("Done 3 ")
 
         self.audio_time = None
         if audiofile and os.path.exists(audiofile):
-            print "Found corresponding audio file: ", audiofile
+            print("Found corresponding audio file: ", audiofile)
             self.use_audio = True
             self.audio_fs, audio_data = wav.read(audiofile)
-            print 'Audio Sampling rate: ', self.audio_fs
+            print('Audio Sampling rate: ', self.audio_fs)
             self.audio_data=abs(audio_data[:,1])
             # lungime=len(y)
             t_total = self.audio_data.shape[0]
@@ -182,7 +182,7 @@ class getPulseWaveFromFileApp(object):
             self.audio_time = np.linspace(0,ts,t_total)
             # if bandpass:
             #     self.audio_data = self.butter_bandpass_filter(self.audio_data, 10, 1000, self.audio_fs, 2)
-            print "Done 4 "
+            print("Done 4 ")
 
     def close_fig_pdf(self):
         self.fig_pdf.close()
@@ -206,7 +206,7 @@ class getPulseWaveFromFileApp(object):
         else:
             self.smooth_data_fig = smooth_data_fig
         # print self.grid_side
-        for grid_idx in xrange(0,self.grid_size):
+        for grid_idx in range(0,self.grid_size):
             data_ax = self.smooth_data_fig.add_subplot(self.grid_side,self.grid_side, grid_idx)
             data_ax.clear()
             #data axis properties
@@ -226,7 +226,7 @@ class getPulseWaveFromFileApp(object):
         self.data_smooth = np.zeros((self.nframes*usf, self.grid_size, self.nvals))
         # print self.time.ndim
 
-        for grid_idx in xrange(0, self.grid_size):
+        for grid_idx in range(0, self.grid_size):
             #self.data_bandpass.reshape((self.nframes, 1))
             #print self.time_smooth.shape, time.shape, self.data_bandpass.shape
             f_interp = interpolate.interp1d(self.time, self.data_bandpass[:, grid_idx], kind='cubic', axis=0)
@@ -243,7 +243,7 @@ class getPulseWaveFromFileApp(object):
         else:
             self.data_fig = data_fig
 
-        for grid_idx in xrange(0, self.grid_size):
+        for grid_idx in range(0, self.grid_size):
 
             data_ax = self.data_fig.add_subplot(self.grid_side,self.grid_side, grid_idx)
             data_ax.clear()
@@ -267,7 +267,7 @@ class getPulseWaveFromFileApp(object):
         norm_pulse_fig = plt.figure()
         if good_pulse_fig is None:
             self.good_pulse_fig = plt.figure()
-            print "Figure not passed"
+            print("Figure not passed")
         else:
             self.good_pulse_fig = good_pulse_fig
         if peaks_fig is None:
@@ -281,7 +281,7 @@ class getPulseWaveFromFileApp(object):
 
         pulse_avg_fid = open( self.output_dir + '/avg_pulse'+str(self.starttime)+'_'+ str(self.endtime)+'.txt', 'w' )
 
-        for grid_idx in xrange(0, self.grid_size):
+        for grid_idx in range(0, self.grid_size):
 
             #plot for each grid entry
             pulse_ax = pulse_fig.add_subplot(self.grid_side,self.grid_side, grid_idx)
@@ -351,21 +351,21 @@ class getPulseWaveFromFileApp(object):
                 #cross-correlate the avg with every pulse
                 # print 'correlation', np.max(np.correlate(a, a, 'full'))
                 to_delete = []
-                print 'Number of initial pulses', this_normalized_pulses.shape[0]
+                print('Number of initial pulses', this_normalized_pulses.shape[0])
                 for pulse_idx in range(0, this_normalized_pulses.shape[0], 1):
                     v= this_normalized_pulses[pulse_idx,:]
                     v = (v - np.mean(v)) /  np.std(v)
                     norm_corr = np.max(np.correlate(a, v, 'full'))/pulse_len
                     if norm_corr < 0.90 :
                         to_delete.append(pulse_idx)
-                        print 'Deleting Pulse'
+                        print('Deleting Pulse')
 
                     # print 'IDX:', pulse_idx ,'correlation', norm_corr
 
                 this_normalized_pulses = np.delete(this_normalized_pulses,to_delete, axis=0)
-                print 'Number of final pulses', this_normalized_pulses.shape[0]
+                print('Number of final pulses', this_normalized_pulses.shape[0])
                 if len(to_delete) == 0:
-                    print 'Done removing bad pulses'
+                    print('Done removing bad pulses')
                     break
 
             #Save avg pulse to file
@@ -390,7 +390,7 @@ class getPulseWaveFromFileApp(object):
         self.fig_pdf.savefig(norm_pulse_fig)
         self.fig_pdf.savefig(self.good_pulse_fig)
         pulse_avg_fid.close()
-        print "Done"
+        print("Done")
 
 
 
@@ -416,8 +416,8 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    print "Running with parameters:"
-    print args
+    print("Running with parameters:")
+    print(args)
 
     App =  pulseAlignApp(videofile = args.videofile,
             output_dir = args.output_dir )

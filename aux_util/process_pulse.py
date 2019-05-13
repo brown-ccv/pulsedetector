@@ -9,16 +9,15 @@
 if __name__ == '__main__':
 
     import sys
-    sys.path.append('../')
-    from batch_process import process
+    import os
+    sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__),'..')))
+    from pulse_detector.batch_process import process
 
 
-    # videofile = '/Users/isa/Dropbox/data/VACUScan/6-18-2014/IMG_0688.MOV'
-
-    data_date = '6-18-2014'
-    data_dir = "/Users/isa/Dropbox/data/VACUScan/6-18-2014"
-    output_dir = '/Users/isa/Dropbox/Experiments/VacuScan-develop/' + data_date
-    files = [ 'IMG_0688']
+    data_date = '17-10-2018'
+    data_dir = "/Users/mmcgrat3/src/pulse-test"
+    output_dir = '/Users/mmcgrat3/src/pulse-test/'
+    files = [ 'resting-state_2018-10-17_15-21-05_HR-AV']
 
 
     #good example from past data
@@ -27,9 +26,9 @@ if __name__ == '__main__':
     # files = ['IMG_0472']
 
     #iphone camera
-    data_dir = "/Users/isa/Dropbox/data/tests"
-    output_dir = '/Users/isa/Dropbox/data/tests'
-    files = [ 'IMG_1959']
+    # data_dir = "/Users/isa/Dropbox/data/tests"
+    # output_dir = '/Users/isa/Dropbox/data/tests'
+    # files = [ 'IMG_1959']
 
     audio_data_dir = data_dir
 
@@ -42,8 +41,7 @@ if __name__ == '__main__':
                     data_dir = data_dir,
                     output_dir = output_dir,
                     audio_data_dir = data_dir,
-                    files_prefix ='/' + f + '.MOV',
+                    files_prefix ='/' + f + '.mp4',
                     audio_files_prefix = '/' + f + '.wav',
                     time_intervals = [[10,-1]],
                     plot_data_interval = [1,-1]);
-

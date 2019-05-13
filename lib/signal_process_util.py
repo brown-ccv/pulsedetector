@@ -6,7 +6,7 @@
 # @Last Modified time: 2015-03-14 22:40:14
 
 
-from __future__ import division
+
 
 import numpy as np
 from scipy.signal import butter, lfilter
@@ -23,7 +23,7 @@ def bandpass(data, fps, lowcut, highcut):
     shape = data.shape
 
     if len(shape) > 1:
-        for k in xrange(1,shape[1]):
+        for k in range(1,shape[1]):
             npad = int(10*fps)
             data_pad = np.lib.pad(data[:,k], npad, 'median')
             data_pad = butter_bandpass_filter(data_pad, lowcut, highcut, fps, 5)
@@ -81,8 +81,8 @@ def compute_fft(time, data, Fs):
     else:
         dim = 1
 
-    print "Here"
-    print time
+    print("Here")
+    print(time)
     #------ Data preprocessing ------------
     even_times = np.linspace(time[0], time[-1], L)
     f_interp = interpolate.interp1d(time, data, kind='linear', axis=0)

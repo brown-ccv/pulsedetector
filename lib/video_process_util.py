@@ -8,7 +8,7 @@
 
 import sys
 import cv2
-from device import Video
+from .device import Video
 
 def resize(videoInFname, videoOutFname, resizeFactor):
 
@@ -16,7 +16,7 @@ def resize(videoInFname, videoOutFname, resizeFactor):
     vidIn = Video(videoInFname)
 
     if not vidIn.valid:
-        print "Error: Could not open input video"
+        print("Error: Could not open input video")
         sys.exit()
 
     img_h, img_w, _ = vidIn.shape
@@ -28,7 +28,7 @@ def resize(videoInFname, videoOutFname, resizeFactor):
     fourcc = cv2.VideoWriter_fourcc('m', 'p', '4', 'v')
     vidOut = cv2.VideoWriter(videoOutFname, fourcc, vidIn.fps, (img_w, img_h))
     if not vidOut.isOpened():
-        print "Error opening video stream"
+        print("Error opening video stream")
         sys.exit()
 
     while not vidIn.end():
@@ -48,7 +48,7 @@ def slowDown(videoInFname, videoOutFname, slowDownFactor):
     vidIn = Video(videoInFname)
 
     if not vidIn.valid:
-        print "Error: Could not open input video"
+        print("Error: Could not open input video")
         sys.exit()
 
     img_h, img_w, _ = vidIn.shape
@@ -57,7 +57,7 @@ def slowDown(videoInFname, videoOutFname, slowDownFactor):
     fourcc = cv2.VideoWriter_fourcc('m', 'p', '4', 'v')
     vidOut = cv2.VideoWriter(videoOutFname, fourcc, vidIn.fps/slowDownFactor, (img_w, img_h))
     if not vidOut.isOpened():
-        print "Error opening video stream"
+        print("Error opening video stream")
         sys.exit()
 
     while not vidIn.end():

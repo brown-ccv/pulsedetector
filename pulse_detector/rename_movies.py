@@ -35,7 +35,7 @@ for this_file  in files:
   fname = os.path.splitext(os.path.basename(this_file))[0]
   old_dir = output_dir + "/" + fname
   new_dir = old_dir.replace(" ", "-")
-  print "Renaming ",  old_dir, " to ", new_dir
+  print("Renaming ",  old_dir, " to ", new_dir)
   shutil.move(old_dir, new_dir);
 
 print("Done")

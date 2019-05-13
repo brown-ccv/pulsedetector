@@ -3,11 +3,11 @@
 # @Author: Isa Restrepo
 # @Date:   2014-04-20 13:20:18
 # @Last Modified by:   Isa Restrepo
-# @Last Modified time: 2015-03-31 22:58:05
+# @Last Modified time: 2015-05-22 10:11:09
 
 
 if True:
-    from get_pulse import getPulseApp
+    from .get_pulse import getPulseApp
     find_faces = False
     roi_percent = 0.8
     grid_size = 2
@@ -30,7 +30,7 @@ if True:
     App.run()
 
 if False:
-    from motion.good_features_to_track import goodFeatures2Track
+    from .motion.good_features_to_track import goodFeatures2Track
 
     videofile = '/Users/isa/Dropbox/data/VACUScan/5-13-2014/IMG_0468.MOV'
     output_dir = '/Users/isa/Experiments/VACUScan/motion/5-13-2014'
@@ -45,7 +45,7 @@ if False:
                        resize_div = resize_div)
 
 if False:
-    from motion.videostab import videostab
+    from .motion.videostab import videostab
 
     exe_path = '/Users/isa/Dropbox/Projects/pulse_detector/cpp/bin/release/motion'
     exe = exe_path + "/videostab1"
@@ -66,3 +66,7 @@ if False:
                 smooth_radius = smooth_radius,
                 save_side2side = save_side2side,
                 quiet_mode = quiet_mode)
+
+
+
+

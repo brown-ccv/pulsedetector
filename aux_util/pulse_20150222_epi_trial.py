@@ -50,10 +50,18 @@ if __name__ == '__main__':
 
     if find_pulse_wave:
 
-        from pulse_align_ios import getPulseWaveFromFileApp
+        import lib.pulse_align_ios
+        from lib.pulse_align_ios import getPulseWaveFromFileApp
+
+        # App = getPulseWaveFromFileApp(videofile   =  data_dir + '/' + f + '.mp4',
+        #                               output_dir  = output_dir + '/' + f)
+
 
         App = getPulseWaveFromFileApp(videofile   =  data_dir + '/' + f + '.mp4',
-                                      output_dir  = output_dir + '/' + f)
+                                      datafile = data_dir + '/' + f + '.txt',
+                                      output_dir  = output_dir + '/' + f,
+                                      starttime = 5,
+                                      endtime = 25)
 
         t0=5
         tn=25
