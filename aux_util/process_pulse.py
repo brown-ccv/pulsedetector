@@ -43,5 +43,5 @@ if __name__ == '__main__':
                     audio_data_dir = data_dir,
                     files_prefix ='/' + f + '.mp4',
                     audio_files_prefix = '/' + f + '.wav',
-                    time_intervals = [[10,-1]],
+                    time_intervals = [[30,150]],
                     plot_data_interval = [1,-1]);

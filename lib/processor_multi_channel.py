@@ -53,7 +53,6 @@ class GetPulseMC(object):
 
         if self.no_gui:
             nvals = 4 #time + 3 channels
-            print(self.grid_size)
             self.vals_out = np.zeros([nframes, self.grid_size**2, nvals])
 
         # why are these inputs?
@@ -75,8 +74,6 @@ class GetPulseMC(object):
         self.times = []
         self.ttimes = []
         self.samples = []
-        self.freqs = []
-        self.freqs = []
         self.freqs = []
 
         self.fft = []

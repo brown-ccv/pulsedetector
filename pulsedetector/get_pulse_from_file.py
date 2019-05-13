@@ -44,9 +44,9 @@ class getPulseFromFileApp(object):
         self.use_video=False
         self.use_audio=False
 
-        #use if a bandpass is applied to the data
-        lowcut = 30./60.
-        highcut = 200./60
+        #use if a bandpass is applied to the data (Hz)
+        lowcut = 30.
+        highcut = 200.
 
         # Parse inputs
         videofile = kwargs.get('videofile', '' )
@@ -79,6 +79,7 @@ class getPulseFromFileApp(object):
             video = Video(videofile)
             if video.valid:
                     self.fps = video.fps
+                    print("Frames per second: ", self.fps)
                     video.release()
 
             csv_fin= self.output_dir + "/" + self.param_suffix + ".npy"
@@ -89,6 +90,8 @@ class getPulseFromFileApp(object):
 
             if bandpass:
                 shape = self.data.shape
+                lowcut = lowcut / self.fps
+                highcut = highcut / self.fps
                 for grid_idx in range(0,shape[1]):
                     self.data[:, grid_idx] = sp_util.bandpass(self.data[:, grid_idx], self.fps, lowcut, highcut)
                     # for val_idx in xrange(1,shape[2]):
