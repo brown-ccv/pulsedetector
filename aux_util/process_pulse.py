@@ -11,7 +11,7 @@ if __name__ == '__main__':
     import sys
     import os
     sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__),'..')))
-    from pulse_detector.batch_process import process
+    from pulsedetector.batch_process import process
 
 
     data_date = '17-10-2018'
