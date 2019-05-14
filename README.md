@@ -29,3 +29,4 @@ See `aux_util/process_pulse.py`. Here the data path and steps to run can be spec
 the package can be run with `pipenv run aux_util/process_pulse.py`.
 
 Before processing, you may want to run video stabilization using `aux_util/batch_stabilize.py`.
+If you do stabilization, you will need to build the C++ executables.  See the `cpp/` `README` for instructions.
