@@ -8,34 +8,28 @@
 
 if __name__ == '__main__':
 
-    import sys, glob
-    sys.path.append('../')
+    import sys, glob, os
+    sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__),'..')))
     from motion.videostab import videostab
 
-    exe_path = '/Users/isa/Dropbox/Projects/pulse_detector/cpp/bin/release/motion'
-    exe = exe_path + "/videostab1"
-
-
-    data_date = "half_size/5-16-2014"
-    data_dir = "/Users/isa/Data/VacuScan/" + data_date
-
-    output_dir = '/Users/isa/Experiments/VACUScan/motion/' + data_date
+    data_date = '17-10-2018'
+    data_dir = '/Users/mmcgrat3/src/pulse-test'
+    output_dir = '/Users/mmcgrat3/src/pulse-test'
 
     # For all videos in Pilot data - process
 
     files = []
-    files_prefix = '/*.MOV'
+    files_prefix = '/Bumpy*.mov'
     files = glob.glob(data_dir + files_prefix)
 
-    max_corners = 200
+    max_corners = 201
     min_distance = 30
     smooth_radius = 5
     save_side2side = True
-    quiet_mode = True
+    quiet_mode = False
 
     for videofile in files:
-        videostab(  exe = exe,
-                    videofile = videofile,
+        videostab(  videofile = videofile,
                     output_dir = output_dir,
                     max_corners = max_corners,
                     min_distance  = min_distance,

@@ -175,7 +175,10 @@ class GetPulseMC(object):
                         self.sub_roi_grid.append(self.get_subface_coord(i, j, self.grid_res, self.grid_res))
                         self.data_buffer_grid.append([])
 
-                print("sub-roi size: ",  len(self.sub_roi_grid))
+                print("roi: ", self.roi)
+                print("sub-roi size: ",  self.sub_roi_grid)
+                print("grid_centers: ", self.grid_centers)
+                print("grid_res: ", self.grid_res)
 
         else: #finding region is only supported with GUI interface
 
@@ -254,7 +257,7 @@ class GetPulseMC(object):
             v0, v1, v2 = self.get_roi_means(sub_roi)
 
             if self.no_gui:
-                    self.vals_out[frame_idx, grid_idx]=[self.times[-1], v0, v1, v2]
+                self.vals_out[frame_idx, grid_idx]=[self.times[-1], v0, v1, v2]
                 # self.write_csv(self.times[-1], v, v0, v1, v2)
 
             else :

@@ -12,8 +12,7 @@ def videostab (**kwargs):
     import sys, os
     import subprocess
 
-
-    exe_path = '/Users/isa/Dropbox/Projects/pulse_detector/cpp/bin/release/motion'
+    exe_path = os.path.abspath(os.path.join(os.path.dirname(__file__),'..','cpp/build/motion'))
     default_exe = exe_path + "/videostab1"
 
     print("Running videostab")

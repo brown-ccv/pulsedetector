@@ -71,30 +71,6 @@ class getPulseApp(object):
                 print("Output won't be save: No output directory given")
                 self.save_output = False
 
-        # self.send_serial = False
-        # self.send_udp = False
-
-        # if serial:
-        #     self.send_serial = True
-        #     if not baud:
-        #         baud = 9600
-        #     else:
-        #         baud = int(baud)
-        #     self.serial = Serial(port=serial, baudrate=baud)
-
-        # udp = kwargs.get('udp', None)
-        # if udp:
-        #     self.send_udp = True
-        #     if ":" not in udp:
-        #         ip = udp
-        #         port = 5005
-        #     else:
-        #         ip, port = udp.split(":")
-        #         port = int(port)
-        #     self.udp = (ip, port)
-        #     self.sock = socket.socket(socket.AF_INET, # Internet
-        #          socket.SOCK_DGRAM) # UDP
-
         #Set up to used video file or connected webcams
         self.captures = []
         self.selected_cap = 0
@@ -105,12 +81,9 @@ class getPulseApp(object):
             if video.valid or not len(self.captures):
                     self.captures.append(video)
                     self.fixed_fps = video.fps
-                    print('Here')
-                    print((self.output_dir is not None))
                     if self.output_dir is not None:
                         fname =  os.path.splitext(os.path.basename(videofile))[0]
                         self.output_dir = self.output_dir + "/" + fname
-                        print((self.output_dir))
                         if not os.path.isdir(self.output_dir + "/" ):
                             print(("Createing dir: ",  self.output_dir))
                             os.makedirs(self.output_dir +"/");
@@ -413,7 +386,6 @@ class getPulseApp(object):
 
         # process the image frame to perform all needed analysis
         self.processor.run(self.selected_cap)
-
 
         # handle any key presses
         self.key_handler()

@@ -8,7 +8,7 @@
 
 import cv2
 import numpy as np
-from . lib.device import Video
+from lib.device import Video
 
 # videofile = '/Users/isa/Dropbox/data/VACUScan/5-16-2014/hemangioma_1.MOV'
 # videofout = '/Users/isa/Dropbox/Experiments/VacuScan-develop/5-16-2014/hemangioma_1/flow.MOV'

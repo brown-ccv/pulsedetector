@@ -5,11 +5,13 @@
 #include <stdexcept>
 #include "opencv2/core.hpp"
 #include <opencv2/core/utility.hpp>
+#include <opencv2/core/cvstd_wrapper.hpp>
 #include "opencv2/video.hpp"
 #include "opencv2/imgproc.hpp"
 #include "opencv2/highgui.hpp"
 #include "opencv2/videostab.hpp"
 #include "opencv2/opencv_modules.hpp"
+#include <opencv2/features2d.hpp>
 
 #define arg(name) cmd.get<string>(name)
 #define argb(name) cmd.get<bool>(name)
@@ -228,7 +230,8 @@ public:
 #endif
 
         Ptr<KeypointBasedMotionEstimator> kbest = makePtr<KeypointBasedMotionEstimator>(est);
-        kbest->setDetector(makePtr<GoodFeaturesToTrackDetector>(argi(prefix + "nkps")));
+        Ptr<AgastFeatureDetector> akaze = AgastFeatureDetector::create(); // MCM changed due to errors, used to be GoodFeaturesToTrackDetector (doesn't seem to exist anymore)
+        kbest->setDetector(akaze);
         kbest->setOutlierRejector(outlierRejector);
         return kbest;
     }
@@ -269,7 +272,8 @@ public:
 #endif
 
         Ptr<KeypointBasedMotionEstimator> kbest = makePtr<KeypointBasedMotionEstimator>(est);
-        kbest->setDetector(makePtr<GoodFeaturesToTrackDetector>(argi(prefix + "nkps")));
+        Ptr<AgastFeatureDetector> akaze = AgastFeatureDetector::create(); // MCM changed due to errors, used to be GoodFeaturesToTrackDetector (doesn't seem to exist anymore)
+        kbest->setDetector(akaze);
         kbest->setOutlierRejector(outlierRejector);
         return kbest;
     }
@@ -594,7 +598,3 @@ MotionModel motionModel(const string &str)
 //      cout << "motions are saved";
 //     }
 // }
-
-
-
-
