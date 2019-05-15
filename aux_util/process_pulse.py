@@ -22,16 +22,14 @@ if __name__ == '__main__':
     audio_data_dir = data_dir
 
     for f in files:
-        process (   process_data = True,
+        process (   process_data = False,
                     plot_raw_data = True,
                     plot_data = True,
-                    all_roi_percents = [0.5],
+                    all_roi_percents = [1.0],
                     grid_size = 10,
                     find_faces = True,
                     data_dir = data_dir,
                     output_dir = output_dir,
-                    audio_data_dir = data_dir,
                     files_prefix ='/' + f + '.mp4',
-                    audio_files_prefix = '/' + f + '.wav',
                     time_intervals = [[18,162]],
                     plot_data_interval = [18,30]);

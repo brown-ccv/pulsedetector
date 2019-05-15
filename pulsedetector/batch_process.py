@@ -9,6 +9,7 @@
 from .get_pulse import getPulseApp
 from .get_pulse_from_file import getPulseFromFileApp
 import glob
+import numpy as np
 
 def process(**kwargs):
 
@@ -16,36 +17,27 @@ def process(**kwargs):
   plot_data = kwargs.get('plot_data', False)
   plot_raw_data = kwargs.get('plot_raw_data', False)   #without bandpass
   all_roi_percents = kwargs.get('all_roi_percents', [0.5])
+  roi = kwargs.get('roi', None)
   data_dir = kwargs.get('data_dir', '')
   output_dir = kwargs.get('output_dir', '')
-  audio_data_dir = kwargs.get('audio_data_dir', data_dir)
   files_prefix = kwargs.get('files_prefix', '/*.MOV')
-  audio_files_prefix = kwargs.get('audio_files_prefix', '/*.wav')
   time_intervals = kwargs.get('time_intervals', [[10, 30]])          #intervals in seconds
   plot_data_interval = kwargs.get('plot_data_interval', [5, -5])          #intervals in seconds
 
-  ica_colors =  kwargs.get('ica_colors',['black','magenta','cyan'])
-  ica_labels =  kwargs.get('ica_labels',['ic1','ic2', 'ic3'])
-  find_faces =  kwargs.get('find_faces',False)
-  color_space =  kwargs.get('color_space','rgb')
-  grid_size   =   kwargs.get('grid_size',1)
-  grid_index =  kwargs.get('grid_index',0)  #what we are plotting
-  ica =  kwargs.get('ica',False)
-  no_gui =  kwargs.get('no_gui',True)
+  find_faces =  kwargs.get('find_faces', False)
+  color_space =  kwargs.get('color_space', 'rgb')
+  grid_size   =   kwargs.get('grid_size', 10)
+  grid_index =  kwargs.get('grid_index', 50)  #which sub-roi we are plotting
+  no_gui =  kwargs.get('no_gui', True)
 
   files = []
   files = glob.glob(data_dir + files_prefix)
-  audio_files = glob.glob(audio_data_dir + audio_files_prefix)
 
   for roi_percent in all_roi_percents:
 
       print(("Processing: " + str(len(files)) + " files"))
-      # for videofile, audiofile in zip(files, audio_files):
       for f_idx in range(0, len(files)):
           videofile = files[f_idx]
-          audiofile = ''
-          if len(audio_files) > f_idx:
-            audiofile = audio_files[f_idx]
 
           # Extract average intensity in roi
           if process_data:
@@ -53,6 +45,7 @@ def process(**kwargs):
 
               App = getPulseApp(videofile   =  videofile,
                                 roi_percent =  roi_percent,
+                                roi         =  roi,
                                 find_faces  =  find_faces,
                                 color_space =  color_space,
                                 output_dir  =  output_dir,
@@ -65,12 +58,12 @@ def process(**kwargs):
               print("Plotting raw data")
               # channels = range(1,5)
               colors = ['Green']
-              labels = ['VacuScore']
+              labels = ['Green Channel']
               channels = 2 #1:4
 
               param_suffix = color_space + "-" + str(int(roi_percent*100)) + "-" + str(grid_size)
 
-              App = getPulseFromFileApp (videofile = videofile,
+              App = getPulseFromFileApp( videofile = videofile,
                                          output_dir = output_dir,
                                          param_suffix = param_suffix,
                                          bandpass = False )
@@ -79,7 +72,7 @@ def process(**kwargs):
               #-----------------------------------------------------------
               #       Plot time data in video from beginning to end
               #-----------------------------------------------------------
-              x_data = App.data[int(App.fps*plot_data_interval[0]):int(App.fps*plot_data_interval[1]),grid_index, 0]
+              x_data = App.data[int(App.fps*plot_data_interval[0]):int(App.fps*plot_data_interval[1]), grid_index, 0]
               y_data = App.data[int(App.fps*plot_data_interval[0]):int(App.fps*plot_data_interval[1]), grid_index, channels]
 
               App.plot_vals(x_data = x_data,
@@ -97,11 +90,10 @@ def process(**kwargs):
 
               channels =  2
               colors = ['Green']
-              labels = ['VacuScore']
+              labels = ['Green Channel']
 
               param_suffix = color_space + "-" + str(int(roi_percent*100)) + "-" + str(grid_size)
-              App = getPulseFromFileApp (videofile = videofile,
-                                         audiofile   =  audiofile,
+              App = getPulseFromFileApp( videofile = videofile,
                                          output_dir = output_dir,
                                          param_suffix = param_suffix )
 
@@ -109,28 +101,23 @@ def process(**kwargs):
               #-----------------------------------------------------------
               #       Plot time data in video from beginning to end
               #-----------------------------------------------------------
-              x_data = App.data[int(App.fps*plot_data_interval[0]):int(App.fps*plot_data_interval[1]),grid_index, 0]
-              y_data = App.data[int(App.fps*plot_data_interval[0]):int(App.fps*plot_data_interval[1]), grid_index, channels]
+              frame_range = range(int(App.fps*plot_data_interval[0]), int(App.fps*plot_data_interval[1]))
+              x_data = App.data[frame_range, 0, 0] #time
+              y_data = np.zeros(len(x_data))
 
-              if not App.use_audio:               # if no audio
-                  x_audio = None
-                  y_audio = None
-              else:
-                  x_audio = App.audio_time[int(App.audio_fs*plot_data_interval[0]):int(App.audio_fs*plot_data_interval[1])]
-                  y_audio = App.audio_data[int(App.audio_fs*plot_data_interval[0]):int(App.audio_fs*plot_data_interval[1])]
+              trim_pct = 0.1
+              n = grid_size*grid_size
+              lower_idx = int(n*trim_pct)
+              upper_idx = int(n*(1-trim_pct))
+              for i in range(len(y_data)):
+                  frame_data = np.sort(App.data[frame_range[i], :, channels])
+                  y_data[i] = np.average(frame_data[lower_idx:upper_idx])
 
               App.plot_vals(x_data = x_data,
                             y_data = y_data,
-                            x_audio = x_audio,
-                            y_audio = y_audio,
                             suffix = 'data-[{0:0.0f}-{1:0.0f}]'.format(plot_data_interval[0], plot_data_interval[1]),
                             labels = labels,
                             colors = colors)
-
-              if ica:
-                App.plot_ica(time = x_data,
-                             data = App.data[:, grid_index, 2:5],
-                             suffix = "ica")
 
 
               #-----------------------------------------------------------
@@ -140,44 +127,31 @@ def process(**kwargs):
               # different intervals
               #-----------------------------------------------------------
 
-              # time_intervals = [[0,-1./App.audio_fs]]  #whole video
-              # time_intervals = [[70, 90]]           #intervals in seconds
-              # time_intervals = [[20, 30]]           #intervals in seconds
-
+              # HOW TO HANDLE MULTIPLE GRID SQUARES - MAYBE CREATE NEW .MAT WITH COMPOSITE ANALYSES (RAW, BANDPASS, FFT, KEY PARAMS)
               for ti in time_intervals:             # for each interval
 
+                frame_range = range(int(App.fps*ti[0]), int(App.fps*ti[1]))
+                x_data = App.data[frame_range, 0, 0] #time
+                y_data = np.zeros(len(x_data))
 
-                if not App.use_audio:               # if no audio
-                  x_audio = None
-                  y_audio = None
+                trim_pct = 0.1
+                n = grid_size * grid_size
+                lower_idx = int(n*trim_pct)
+                upper_idx = int(n*(1-trim_pct))
+                print(lower_idx)
+                print(upper_idx)
+                for i in range(len(y_data)):
+                    frame_data = np.sort(App.data[frame_range[i], :, channels])
+                    y_data[i] = np.average(frame_data[lower_idx:upper_idx])
+                    # if i == 0:
+                    #     print(frame_data)
+                    #     print(frame_data[lower_idx:upper_idx])
+                    #     print(y_data[i])
 
-                else:
-                  x_audio = App.audio_time[ int(App.audio_fs*ti[0]):
-                                            int(App.audio_fs*ti[1])]
-                  y_audio = App.audio_data[ int(App.audio_fs*ti[0]):
-                                            int(App.audio_fs*ti[1])]
-
-                x_data = App.data[  int(App.fps*ti[0]):
-                                    int(App.fps*ti[1]), grid_index, 0]
-                y_data = App.data[  int(App.fps*ti[0]):
-                                    int(App.fps*ti[1]), grid_index, channels]
-
+                print(x_data)
+                print(y_data)
                 App.plot_fft( time = x_data,
                               data = y_data,
-                              audio_time = x_audio,
-                              audio = y_audio,
                               suffix = 'fft-[{0:0.0f}-{1:0.0f}]'.format(ti[0], ti[1]),
                               labels = labels,
                               colors = colors)
-
-                if ica:
-                  ica_data = App.S_[  int(App.fps*ti[0]):
-                                      int(App.fps*ti[1]),]
-
-                  App.plot_fft( time = x_data,
-                                data = ica_data,
-                                audio_time = x_audio,
-                                audio = y_audio,
-                                suffix = 'ica-fft-[{0:0.0f}-{1:0.0f}]'.format(ti[0], ti[1]),
-                                labels = ica_labels,
-                                colors = ica_colors)
