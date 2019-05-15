@@ -1,5 +1,4 @@
 # pulsedetector
------------------------
 
 A python code that detects the heart-rate of an individual using a common from a video.
 
@@ -11,7 +10,7 @@ This goal is comparable to those of a few previous efforts in this area
 (such as https://github.com/mossblaser/HeartMonitor).
 
 ### How it works:
------------------
+
 If video of a person is used, the application can find the location of the user's face, then isolate the detection region. Otherwise, a fixed rectangular region can be specified. Data is collected from this location over time to estimate the heart rate. This is done by measuring average optical
 intensity in the roi (region of interest), in the green channel alone
 

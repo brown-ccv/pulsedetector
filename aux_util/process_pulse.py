@@ -16,7 +16,7 @@ if __name__ == '__main__':
 
     data_date = '17-10-2018'
     data_dir = "/Users/mmcgrat3/src/pulse-test"
-    output_dir = '/Users/mmcgrat3/src/pulse-test'
+    output_dir = '/Users/mmcgrat3/src/pulse-test/find-face'
     files = [ 'resting-state_2018-10-17_15-21-05_HR-AV']
 
     audio_data_dir = data_dir
@@ -25,7 +25,7 @@ if __name__ == '__main__':
         process (   process_data = True,
                     plot_raw_data = True,
                     plot_data = True,
-                    all_roi_percents = [0.1],
+                    all_roi_percents = [0.5],
                     grid_size = 10,
                     find_faces = True,
                     data_dir = data_dir,
@@ -34,4 +34,4 @@ if __name__ == '__main__':
                     files_prefix ='/' + f + '.mp4',
                     audio_files_prefix = '/' + f + '.wav',
                     time_intervals = [[18,162]],
-                    plot_data_interval = [1,-1]);
+                    plot_data_interval = [18,30]);

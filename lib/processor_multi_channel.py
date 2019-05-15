@@ -163,77 +163,45 @@ class GetPulseMC(object):
         # frame_idx = int((self.times[-1]*self.fps)+0.1) - 1
         frame_idx = len(self.times) - 1
         # print 'frame_idx: ' , frame_idx
-        if self.no_gui:
-            if frame_idx == 0:
-                w, h, c = self.frame_in.shape;
+        if self.roi is None:
+            if self.find_faces:
+                # self.times, self.trained = [], False
+                detected = list(self.face_cascade.detectMultiScale(self.gray,
+                                                                   scaleFactor=1.3,
+                                                                   minNeighbors=4,
+                                                                   minSize=(
+                                                                       50, 50),
+                                                                   flags=cv2.CASCADE_SCALE_IMAGE))
+
+                if len(detected) > 0:
+                    detected.sort(key=lambda a: a[-1] * a[-2])
+
+                    if self.shift(detected[-1]) > 10:
+                        self.roi = detected[-1]
 
                 if self.roi is None:
-                    self.roi = [0, 0, h-1, w-1]
+                    print("Something went wrong with face detection, try running with find_faces = False")
+                    return
 
-                for i in self.grid_centers:
-                    for j in self.grid_centers:
-                        self.sub_roi_grid.append(self.get_subface_coord(i, j, self.grid_res, self.grid_res))
-                        self.data_buffer_grid.append([])
+                # Draw rectangles around the face and the forhead
+                # self.sub_roi_grid = []
+                # sub_roi = self.get_subface_coord(0.5, 0.18, 0.25, 0.15)
+                # self.sub_roi_grid.append(sub_roi)
 
-                print("roi: ", self.roi)
-                print("sub-roi size: ",  self.sub_roi_grid)
-                print("grid_centers: ", self.grid_centers)
-                print("grid_res: ", self.grid_res)
+            else:
+                w, h, c = self.frame_in.shape;
+                self.roi = [0, 0, h-1, w-1]
 
-        else: #finding region is only supported with GUI interface
-
-            # write the running time
-            cv2.putText( self.frame_out, "Time {:.2f}".format(self.times[-1]),
-                    (10, int(self.frame_in.shape[0] - 50*self.draw_scale)),
-                    cv2.FONT_HERSHEY_PLAIN, 1.25*self.draw_scale, col,
-                    int(self.draw_scale))
-
-            if self.find_region:
-                if self.find_faces:
-                    self.data_buffer_grid = []
+            self.data_buffer_grid = []
+            for i in self.grid_centers:
+                for j in self.grid_centers:
+                    self.sub_roi_grid.append(self.get_subface_coord(i, j, self.grid_res, self.grid_res))
                     self.data_buffer_grid.append([])
-                    self.times, self.trained = [], False
-                    detected = list(self.face_cascade.detectMultiScale(self.gray,
-                                                                       scaleFactor=1.3,
-                                                                       minNeighbors=4,
-                                                                       minSize=(
-                                                                           50, 50),
-                                                                       flags=cv2.CASCADE_SCALE_IMAGE))
 
-                    if len(detected) > 0:
-                        detected.sort(key=lambda a: a[-1] * a[-2])
-
-                        if self.shift(detected[-1]) > 10:
-                            self.roi = detected[-1]
-
-                    # Draw rectangles around the face and the forhead
-                    self.sub_roi_grid = []
-                    sub_roi = self.get_subface_coord(0.5, 0.18, 0.25, 0.15)
-                    self.sub_roi_grid.append(sub_roi)
-                    self.draw_rect(self.roi)
-                    x, y, w, h = self.roi
-                    cv2.putText(self.frame_out, "Face",
-                               (int(w - w/20.) , int(y - 10*self.draw_scale) ), cv2.FONT_HERSHEY_PLAIN, 1*self.draw_scale, (0, 255, 0), int(self.draw_scale))
-                    self.draw_rect(sub_roi)
-                    x, y, w, h = sub_roi
-                    cv2.putText(self.frame_out, "Forehead",
-                               (x , int(y - 10*self.draw_scale) ), cv2.FONT_HERSHEY_PLAIN, 1*self.draw_scale, (0, 255, 0), int(self.draw_scale))
-                    return
-
-                if self.find_rectangle:
-                    # self.data_buffer= []
-                    self.times, self.trained = [], False
-                    w, h, c = self.frame_in.shape;
-                    self.roi = [0, 0, h-1, w-1]
-                    self.sub_roi_grid = []
-                    self.data_buffer_grid = []
-                    for i in self.grid_centers:
-                        for j in self.grid_centers:
-                            sub_roi = self.get_subface_coord(i, j, self.grid_res, self.grid_res)
-                            self.sub_roi_grid.append(sub_roi)
-                            self.draw_rect(sub_roi)
-                            self.data_buffer_grid.append([])
-                    return
+            print("roi: ", self.roi)
+            print("sub-roi size: ",  self.sub_roi_grid)
+            print("grid_centers: ", self.grid_centers)
+            print("grid_res: ", self.grid_res)
 
         if self.roi is None:
             print("Something went wrong with the roi")
