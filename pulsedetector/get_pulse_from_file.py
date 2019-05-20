@@ -15,6 +15,7 @@ matplotlib.use('PS')
 import matplotlib.pyplot as plt
 from scipy import interpolate, fftpack
 import scipy.io as sio
+from sklearn.decomposition import PCA
 
 from lib.device import Video
 from lib import signal_process_util as sp_util
@@ -39,9 +40,9 @@ class getPulseFromFileApp(object):
 
         self.fps = 0
 
-        #use if a bandpass is applied to the data (Hz)
-        lowcut = 30.
-        highcut = 200.
+        # use if a bandpass is applied to the data (Hz) (~45 bpm - 300 bpm)
+        lowcut = .75
+        highcut = 5
 
         # Parse inputs
         videofile = kwargs.get('videofile', '' )
@@ -50,7 +51,9 @@ class getPulseFromFileApp(object):
         bandpass = kwargs.get('bandpass', True)
         self.fname = None
         self.data = [];
-
+        self.processed_data = []
+        self.sample_rate = 250.0
+        self.pca_components = []
 
         if videofile and os.path.exists(videofile):
             print("Processing file: ", videofile)
@@ -72,13 +75,35 @@ class getPulseFromFileApp(object):
 
             print("Done reading data of size: " , self.data.shape)
 
-            if bandpass:
-                shape = self.data.shape
-                lowcut = lowcut / self.fps
-                highcut = highcut / self.fps
-                for grid_idx in range(0,shape[1]):
-                    self.data[:, grid_idx] = sp_util.bandpass(self.data[:, grid_idx], self.fps, lowcut, highcut)
+            shape = self.data.shape
 
+            # Upsample video using cubic interpolation to improve variability / peak detection
+            new_t = np.arange(self.data[0,0,0], self.data[-2,0,0], 1.0/self.sample_rate)
+            self.processed_data = np.zeros([len(new_t), shape[1], 2]) # just time and green channel
+            print(self.processed_data.shape)
+            for grid_idx in range(0,shape[1]):
+                f = interpolate.interp1d(self.data[:, grid_idx, 0], self.data[:, grid_idx, 2], kind='cubic')
+                self.processed_data[:, grid_idx, 0] = new_t
+                self.processed_data[:, grid_idx, 1] = f(new_t)
+
+            if bandpass:
+                for grid_idx in range(0,shape[1]):
+                    self.processed_data[:, grid_idx] = sp_util.bandpass(self.processed_data[:, grid_idx], self.sample_rate, lowcut, highcut)
+
+            self.processed_data[:,:,1] -= self.processed_data[:,:,1].mean()
+            self.processed_data[:,:,1] /= self.processed_data[:,:,1].std()
+
+            # remove outliers
+            diffs = np.amax(np.abs(self.processed_data[1:-1,:,1] - self.processed_data[0:-2,:,1]), axis=0)
+            keep_idx = diffs < diffs.mean() + 1.5*diffs.std()
+            self.processed_data = self.processed_data[:,keep_idx,:]
+            print("Removed ", len(keep_idx) - np.sum(keep_idx), " outlier sub ROIs")
+
+            pca = PCA(n_components=10)
+            self.pca_components = pca.fit_transform(self.processed_data[:,:,1])
+
+            csv_fout = self.output_dir + "/" + self.param_suffix + "_processed.mat"
+            sio.savemat(csv_fout, {'processed_data': self.processed_data, 'pca': self.pca_components})
 
 
     def plot_vals(self, **kwargs):
@@ -87,37 +112,23 @@ class getPulseFromFileApp(object):
         suffix = kwargs.get('suffix', None)
         xlabel = kwargs.get('xlabel', 'Time')
         ylabel = kwargs.get('ylabel', 'Intensity')
-        colors = kwargs.get('colors',  ['black','blue','green', 'red'])
-        labels = kwargs.get('labels',  ['avg','blue-ch','green-ch', 'red-ch'])
-
-        shape = y_data.shape
-        if len(shape) > 1:
-            dim = shape[1]
-        else:
-            dim = 1
+        color = kwargs.get('color', 'green')
+        label = kwargs.get('label', 'g')
 
         #---------------------------------------------------------------
         #             Set up plots
         #---------------------------------------------------------------
         data_fig = plt.figure()
         data_ax = data_fig.add_subplot(1,1,1)
-        audio_ax = None
 
         plt.axis(tight=True);
 
         #---------------------------------------------------------------
         #              Plot VideoSignal
         #---------------------------------------------------------------
-        if dim == 1:
-            data_ax.plot(x_data, y_data,
-                         color=colors[0],
-                         label=labels[0])
-        else:
-            for k in range(dim):
-                data_ax.plot( x_data, y_data[:,k],
-                              color=colors[k],
-                              label=labels[k])
-
+        data_ax.plot(x_data, y_data,
+                     color=color,
+                     label=label)
 
         #data axis properties
         data_ax.set_ylabel(ylabel,fontsize= 14);
@@ -129,72 +140,36 @@ class getPulseFromFileApp(object):
         # Save plots
         data_fig.savefig(self.output_dir + "/" + self.param_suffix + "-" + suffix + ".png")
 
+    def compute_fft(self, **kwargs):
+        time = kwargs.get('time', [])
+        data = kwargs.get('data', [])
 
-    def downsample(self,data,mult):
-        """Given 1D data, return the binned average."""
-        overhang=len(data)%mult
-        if overhang: data=data[:-overhang]
-        data=np.reshape(data,(len(data)/mult,mult))
-        data=np.average(data,1)
-        return data
+        freqs, fft, phase = sp_util.compute_fft(time, data, self.sample_rate)
 
-    def butter_bandpass(self, lowcut, highcut, fs, order=6):
-        nyq = 0.5 * fs
-        low = lowcut / nyq
-        high = highcut / nyq
-        b, a = butter(order, [low, high], btype='band')
-        return b, a
+        #------ Smooth video fft ------------
+        even_freqs = np.linspace(freqs[0], freqs[-1], len(freqs)*4)
+        f_interp = interpolate.interp1d(freqs, fft, kind='cubic', axis=0)
+        fft_smooth = f_interp(even_freqs)
 
-    def butter_lowpass(self, highcut, fs, order=6):
-        nyq = 0.5 * fs
-        high = highcut / nyq
-        b, a = butter(order, high, btype='low')
-        return b, a
+        bpm_idx = np.argmax(fft_smooth)
 
-    def butter_bandpass_filter(self, data, lowcut, highcut, fs, order=6):
-        b, a = self.butter_bandpass(lowcut, highcut, fs, order=order)
-        y = lfilter(b, a, data)
-        return y
-
-    def butter_low_filter(self, data, highcut, fs, order=6):
-        b, a = self.butter_lowpass(highcut, fs, order=order)
-        y = lfilter(b, a, data)
-        return y
-
+        return freqs, fft, even_freqs, fft_smooth, bpm_idx
 
     def plot_fft(self, **kwargs):
 
         time = kwargs.get('time', [])
         data = kwargs.get('data', [])
         suffix = kwargs.get('suffix', None)
-        colors = kwargs.get('colors',  ['black','blue','green','red'])
-        labels = kwargs.get('labels',  ['avg','b','g','r'])
+        color = kwargs.get('color', 'green')
+        label = kwargs.get('label', 'g')
 
         #---------------------------------------------------------------
         #              Take Care of VideoSignal:
         #   Compute fft, get max value and attach to plot label
         #---------------------------------------------------------------
-        print("Time:", time)
-        freqs, fft, phase = sp_util.compute_fft(time, data, self.fps)
+        freqs, fft, even_freqs, fft_smooth, bpm_idx = self.compute_fft(time=time, data=data)
 
-        print("Done computing fft")
-
-        shape = fft.shape
-        if len(shape) > 1:
-            dim = shape[1]
-        else:
-            dim = 1
-
-        #add max-bpm to the label
-        new_labels = [];
-        for k in range(dim):
-            bpm_idx = np.argmax(fft[:,k])
-            new_labels.append(labels[k] + ': ' + "{:.2f} bpm".format(freqs[bpm_idx]))
-
-        #------ Smooth video fft ------------
-        even_freqs = np.linspace(freqs[0], freqs[-1], len(freqs)*4)
-        f_interp = interpolate.interp1d(freqs, fft, kind='cubic', axis=0)
-        fft_smooth = f_interp(even_freqs)
+        new_label = label + ': ' + "{:.2f} bpm".format(even_freqs[bpm_idx])
 
         #------ Plot ------------
         self.plot_vals(x_data = even_freqs,
@@ -202,8 +177,8 @@ class getPulseFromFileApp(object):
                        suffix = suffix ,
                        xlabel = 'BPM',
                        ylabel = 'dB',
-                       colors = colors,
-                       labels = new_labels)
+                       color = color,
+                       label = new_label)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Pulse calculator from file')

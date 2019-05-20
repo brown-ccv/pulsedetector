@@ -81,8 +81,6 @@ def compute_fft(time, data, Fs):
     else:
         dim = 1
 
-    print("Here")
-    print(time)
     #------ Data preprocessing ------------
     even_times = np.linspace(time[0], time[-1], L)
     f_interp = interpolate.interp1d(time, data, kind='linear', axis=0)
@@ -103,7 +101,7 @@ def compute_fft(time, data, Fs):
 
     freqs = np.linspace(0.0, Fs/2., L//2)    #frequencies
     freqs = 60. * freqs                     #convert to BPM (pulse)
-    idx = np.where((freqs > 40) & (freqs < 180)) #ideal filter
+    idx = np.where((freqs >= 45) & (freqs <= 500)) #ideal filter
 
     if not np.sum(idx):
         return [], [], []
@@ -130,18 +128,6 @@ def compute_fft(time, data, Fs):
     pruned  = (pruned) / np.sum(pruned)  # Probability
 
     return pfreq, pruned, pphase
-
-
-# def compute_ica( data):
-#     ica = FastICA()
-#     S_ = ica.fit(data).transform(data)  # Get the estimated sources
-#     A_ = ica.mixing_  # Get estimated mixing matrix
-
-#     return S_, A_
-
-"""Detect peaks in data based on their amplitude and other features."""
-
-
 
 
 def detect_peaks(x, mph=None, mpd=1, threshold=0, edge='rising',

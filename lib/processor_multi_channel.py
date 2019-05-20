@@ -31,7 +31,7 @@ class GetPulseMC(object):
         self.find_faces = kwargs.get('find_faces', True)
         self.roi_percent = kwargs.get('roi_percent', 0.5)
         self.grid_size = kwargs.get('grid_size', 1)
-        nframes = kwargs.get('nframes', 0)
+        self.nframes = kwargs.get('nframes', 0)
         self.fixed_fps = kwargs.get('fixed_fps', None)
         self.roi = kwargs.get('roi', None)
         self.output_dir = kwargs.get('output_dir', None)
@@ -39,8 +39,8 @@ class GetPulseMC(object):
 
 
         # Initialize parameters
-        nvals = 4 #time + 3 channels
-        self.vals_out = np.zeros([nframes, self.grid_size**2, nvals])
+        self.nvals = 4 #time + 3 channels
+        self.vals_out = np.zeros([self.nframes, self.grid_size**2, self.nvals]) # This is probably wrong, but gets updated later
         self.sub_roi_grid = []
         self.grid_res = self.roi_percent/self.grid_size
         self.grid_centers = 0.5 + self.grid_res*np.linspace(-(self.grid_size-1)/2., (self.grid_size-1)/2., self.grid_size)
@@ -56,7 +56,6 @@ class GetPulseMC(object):
         dpath = resource_path("haarcascade_frontalface_alt.xml")
         if not os.path.exists(dpath):
             print("Cascade file not present!")
-        print("dpath: ", dpath)
         self.face_cascade = cv2.CascadeClassifier(dpath)
         self.last_center = np.array([0, 0])
 
@@ -119,29 +118,31 @@ class GetPulseMC(object):
                             self.roi = detected[-1]
 
                     if self.roi is None:
-                        print("Something went wrong with face detection, try running with find_faces = False")
+                        print("Something went wrong with face detection, try running with find_faces = False and manually specifying roi")
                         exit()
 
                     # tighten roi to smaller portion of face (less background area)
-                    self.roi = self.get_subface_coord(0.5, 0.6, 0.75, 0.9)
+                    self.roi = self.get_subface_coord(0.5, .6, .65, 0.85)
 
                 else:
                     w, h, c = self.frame_in.shape;
                     self.roi = [0, 0, h-1, w-1]
 
-            self.draw_rect(self.roi)
+            # self.draw_rect(self.roi)
             self.data_buffer_grid = []
             for i in self.grid_centers:
                 for j in self.grid_centers:
-                    self.sub_roi_grid.append(self.get_subface_coord(i, j, self.grid_res, self.grid_res))
-                    self.data_buffer_grid.append([])
-                    self.draw_rect(self.sub_roi_grid[-1])
+                    if not self.find_faces or j <= .15 or j >= .4: # don't want eyes
+                        sub_roi = self.get_subface_coord(i, j, self.grid_res, self.grid_res)
+                        r,g,b = self.get_roi_means(sub_roi)
+                        if not (r>100 and g>100 and b>100): # too much white (cap/wall) in frame filtered out
+                            self.sub_roi_grid.append(sub_roi)
+                            self.data_buffer_grid.append([])
+                            self.draw_rect(self.sub_roi_grid[-1])
 
+            self.vals_out = np.zeros([self.nframes, len(self.sub_roi_grid), self.nvals])
 
-            print("roi: ", self.roi)
-            print("sub-roi size: ",  self.sub_roi_grid)
-            print("grid_centers: ", self.grid_centers)
-            print("grid_res: ", self.grid_res)
+            # save image to show what the regions of interest are
             cv2.imwrite(os.path.join(self.output_dir, f'{self.param_suffix}_first_frame_roi.jpg'), self.first_frame)
 
         if self.roi is None:
