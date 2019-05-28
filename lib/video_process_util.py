@@ -10,6 +10,42 @@ import sys
 import cv2
 from .device import Video
 
+# crop video to have origin at fw, fh (fractions), and width and height of fx and fy
+def crop(videoInFname, videoOutFname, fw, fh, fx, fy):
+    # Open video file
+    vidIn = Video(videoInFname)
+
+    if not vidIn.valid:
+        print("Error: Could not open input video")
+        sys.exit()
+
+    img_h, img_w, _ = vidIn.shape
+
+    y1 = int(img_w * fw - img_w * fx / 2)
+    y2 = int(img_w * fw + img_w * fx / 2)
+    x1 = int(img_h * fh - img_h * fy / 2)
+    x2 = int(img_h * fh + img_h * fy / 2)
+
+    new_img_w = y2 - y1
+    new_img_h = x2 - x1
+    print('New video width & height: ', new_img_w, new_img_h)
+
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    vidOut = cv2.VideoWriter(videoOutFname, fourcc, vidIn.fps, (new_img_w, new_img_h))
+    if not vidOut.isOpened():
+        print("Error opening video stream")
+        sys.exit()
+
+    while not vidIn.end():
+        status, frame = vidIn.get_frame()
+        if not status:
+            break
+        new_frame = frame[x1:x2, y1:y2, :]
+        vidOut.write(new_frame)
+
+    vidIn.release()
+    vidOut.release()
+
 def resize(videoInFname, videoOutFname, resizeFactor):
 
     # Open video file

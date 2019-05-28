@@ -52,7 +52,6 @@ class Video(object):
         self.valid = False
         try:
             resp = self.video.read()
-            print((resp[0]))
             self.shape = resp[1].shape
             self.currFrame = self.video.get(cv2.CAP_PROP_POS_FRAMES)
             self.numFrames = self.video.get(cv2.CAP_PROP_FRAME_COUNT)

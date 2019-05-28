@@ -15,26 +15,24 @@ if __name__ == '__main__':
 
 
     data_date = '17-10-2018'
-    data_dir = "/Users/mmcgrat3/src/pulse-test"
+    data_dir = "/Users/mmcgrat3/src/pulse-test/cropped"
     output_dir = '/Users/mmcgrat3/src/pulse-test/find-face'
-    files = [ 'resting-state_2018-10-17_15-21-05_HR-AV']
+    files = [ 'resting-state_2018*05_HR-AV.mov']
+    face_regions = ['forehead', 'nose', 'lcheek', 'rcheek', 'chin']
 
-    # LOOK INTO PCA ON THE SUB-ROIS
-    # and
-#     We measure the movement of the head throughout the
-# video by selecting and tracking feature points within the region. We apply the OpenCV Lucas Kanade tracker between
-# frame 1 and each frame t = 2 ··· T to obtain the location
-# time-series xn(t), yn(t) for each point n. Only the vertical component yn(t) is used in our analysis. Since a modern ECG device operates around 250 Hz to capture heart
-# rate variability and our videos were only shot at 30 Hz, we
-# apply a cubic spline interpola
     for f in files:
-        process (   process_data = True,
+        process (   process_data = False,
+                    analyze_data = True,
                     plot_raw_data = False,
                     plot_data = True,
-                    grid_size = 12,
+                    plot_intervals = [[10,40], [40,70], [70,100]],
+                    grid_size = 4,
                     find_faces = True,
+                    face_regions = face_regions,
                     data_dir = data_dir,
                     output_dir = output_dir,
-                    files_prefix ='/' + f + '.mp4',
-                    time_intervals = [[18,162],[40,50],[140,150]]
+                    files_prefix ='/' + f, # + '.mp4',
+                    video_start_second = 0,
+                    window_size = 20,
+                    slide_pct = .1
                     );

@@ -29,7 +29,8 @@ class GetPulseMC(object):
 
         # Parse arguments
         self.find_faces = kwargs.get('find_faces', True)
-        self.roi_percent = kwargs.get('roi_percent', 0.5)
+        self.face_regions = kwargs.get('face_regions', ['forehead', 'nose', 'lcheek', 'rcheek', 'chin'])
+        self.roi_percent = kwargs.get('roi_percent', 1.0)
         self.grid_size = kwargs.get('grid_size', 1)
         self.nframes = kwargs.get('nframes', 0)
         self.fixed_fps = kwargs.get('fixed_fps', None)
@@ -42,6 +43,7 @@ class GetPulseMC(object):
         self.nvals = 4 #time + 3 channels
         self.vals_out = np.zeros([self.nframes, self.grid_size**2, self.nvals]) # This is probably wrong, but gets updated later
         self.sub_roi_grid = []
+        self.sub_roi_type_map = {}
         self.grid_res = self.roi_percent/self.grid_size
         self.grid_centers = 0.5 + self.grid_res*np.linspace(-(self.grid_size-1)/2., (self.grid_size-1)/2., self.grid_size)
         self.frame_in = np.zeros((10, 10))
@@ -69,10 +71,17 @@ class GetPulseMC(object):
 
     def draw_rect(self, rect, col=(0, 255, 0)):
         x, y, w, h = rect
-        cv2.rectangle(self.first_frame, (x, y), (x + w, y + h), col, 2)
+        cv2.rectangle(self.first_frame, (x, y), (x + w, y + h), col, 1)
 
     def get_subface_coord(self, fh_x, fh_y, fh_w, fh_h):
         x, y, w, h = self.roi
+        return [int(x + w * fh_x - (w * fh_w / 2.0)),
+                int(y + h * fh_y - (h * fh_h / 2.0)),
+                int(w * fh_w),
+                int(h * fh_h)]
+
+    def get_subroi_coord(self, roi, fh_x, fh_y, fh_w, fh_h):
+        x, y, w, h = roi
         return [int(x + w * fh_x - (w * fh_w / 2.0)),
                 int(y + h * fh_y - (h * fh_h / 2.0)),
                 int(w * fh_w),
@@ -85,6 +94,20 @@ class GetPulseMC(object):
         v1 = np.mean(subframe[:, :, 1])
         v2 = np.mean(subframe[:, :, 2])
         return v0, v1, v2
+
+    def assign_sub_rois(self, region_type, region_area, frame_idx):
+        if region_type not in self.sub_roi_type_map:
+            self.sub_roi_type_map[region_type] = []
+        for i in self.grid_centers:
+            for j in self.grid_centers:
+                sub_roi = self.get_subroi_coord(region_area, i, j, self.grid_res, self.grid_res)
+                r,g,b = self.get_roi_means(sub_roi)
+                # if not (r>100 and g>100 and b>100): # too much white (cap/wall) in frame filtered out
+                self.sub_roi_type_map[region_type].append(len(self.sub_roi_grid))
+                self.sub_roi_grid.append(sub_roi)
+                self.data_buffer_grid.append([])
+                if frame_idx == 0:
+                    self.draw_rect(self.sub_roi_grid[-1])
 
     def run(self):
 
@@ -102,46 +125,52 @@ class GetPulseMC(object):
         frame_idx = len(self.times) - 1
 
         if frame_idx == 0:
-            self.first_frame = self.frame_in
-            if self.roi is None:
-                if self.find_faces:
-                    detected = list(self.face_cascade.detectMultiScale(self.gray,
-                                                                       scaleFactor=1.1,
-                                                                       minNeighbors=4,
-                                                                       minSize=(50, 50),
-                                                                       flags=cv2.CASCADE_SCALE_IMAGE))
-
-                    if len(detected) > 0:
-                        detected.sort(key=lambda a: a[-1] * a[-2])
-
-                        if self.shift(detected[-1]) > 10:
-                            self.roi = detected[-1]
-
-                    if self.roi is None:
-                        print("Something went wrong with face detection, try running with find_faces = False and manually specifying roi")
-                        exit()
-
-                    # tighten roi to smaller portion of face (less background area)
-                    self.roi = self.get_subface_coord(0.5, .6, .65, 0.85)
-
-                else:
-                    w, h, c = self.frame_in.shape;
-                    self.roi = [0, 0, h-1, w-1]
-
-            # self.draw_rect(self.roi)
             self.data_buffer_grid = []
-            for i in self.grid_centers:
-                for j in self.grid_centers:
-                    if not self.find_faces or j <= .15 or j >= .4: # don't want eyes
-                        sub_roi = self.get_subface_coord(i, j, self.grid_res, self.grid_res)
-                        r,g,b = self.get_roi_means(sub_roi)
-                        if not (r>100 and g>100 and b>100): # too much white (cap/wall) in frame filtered out
-                            self.sub_roi_grid.append(sub_roi)
-                            self.data_buffer_grid.append([])
-                            self.draw_rect(self.sub_roi_grid[-1])
+            self.first_frame = np.copy(self.frame_in)
 
+        if self.find_faces:
+            self.data_buffer_grid = []
+            self.sub_roi_grid = []
+            detected = list(self.face_cascade.detectMultiScale(self.gray,
+                                                               scaleFactor=1.1,
+                                                               minNeighbors=4,
+                                                               minSize=(50, 50),
+                                                               flags=cv2.CASCADE_SCALE_IMAGE))
+
+            if len(detected) > 0:
+                detected.sort(key=lambda a: a[-1] * a[-2])
+
+                if self.shift(detected[-1]) > 10:
+                    self.roi = detected[-1]
+
+            if self.roi is None:
+                print("Something went wrong with face detection, try running with find_faces = False and manually specifying roi")
+                exit()
+
+            # tighten roi to smaller portion of face (less background area)
+            if 'forehead' in self.face_regions:
+                self.assign_sub_rois('forehead', self.get_subface_coord(0.5, .2, .6, 0.1), frame_idx)
+
+            if 'nose' in self.face_regions:
+                self.assign_sub_rois('nose', self.get_subface_coord(0.5, .5, .1, 0.15), frame_idx)
+
+            if 'lcheek' in self.face_regions:
+                self.assign_sub_rois('lcheek', self.get_subface_coord(0.22, .6, .2, 0.2), frame_idx)
+
+            if 'rcheek' in self.face_regions:
+                self.assign_sub_rois('rcheek', self.get_subface_coord(0.78, .6, .2, 0.2), frame_idx)
+
+            if 'chin' in self.face_regions:
+                self.assign_sub_rois('chin', self.get_subface_coord(0.5, .99, .13, 0.13), frame_idx)
+
+
+        elif self.roi is None:
+            w, h, c = self.frame_in.shape;
+            self.roi = [0, 0, h-1, w-1]
+            self.assign_sub_rois('', self.roi, frame_idx)
+
+        if frame_idx == 0:
             self.vals_out = np.zeros([self.nframes, len(self.sub_roi_grid), self.nvals])
-
             # save image to show what the regions of interest are
             cv2.imwrite(os.path.join(self.output_dir, f'{self.param_suffix}_first_frame_roi.jpg'), self.first_frame)
 

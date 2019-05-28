@@ -53,7 +53,7 @@ def butter_bandpass( lowcut, highcut, fs, order=6):
     nyq = 0.5 * fs
     low = lowcut / nyq
     high = highcut / nyq
-    b, a = butter(order, [low, high], btype='band')
+    b, a = butter(order, [low, high], btype='bandpass')
     return b, a
 
 def butter_lowpass( highcut, fs, order=6):
@@ -93,7 +93,7 @@ def compute_fft(time, data, Fs):
     L=nfft
 
     #------- FFT and ideal filter -------------
-    raw = fftpack.fft(data,nfft, axis=0)    #run fft
+    raw = fftpack.fft(data, nfft, axis=0)    #run fft
     fft = np.abs(raw[0:L//2])                #get magnitude/real part
     phase = np.angle(raw[0:L//2])
 
@@ -101,7 +101,7 @@ def compute_fft(time, data, Fs):
 
     freqs = np.linspace(0.0, Fs/2., L//2)    #frequencies
     freqs = 60. * freqs                     #convert to BPM (pulse)
-    idx = np.where((freqs >= 45) & (freqs <= 500)) #ideal filter
+    idx = np.where((freqs >= 45) & (freqs <= 300)) #ideal filter
 
     if not np.sum(idx):
         return [], [], []
@@ -122,17 +122,54 @@ def compute_fft(time, data, Fs):
     pphase = pphase.T
     pfreq = freqs[idx]
 
-
     # fft  = 10.*np.log10(fft/ np.min(fft))   #convert to dB
     pruned  = (pruned - np.min(pruned)) / (np.max(pruned) - np.min(pruned))  # Normalize
     pruned  = (pruned) / np.sum(pruned)  # Probability
 
     return pfreq, pruned, pphase
 
+def detect_beats(x, bpm):
+    """Detect beats in pulse data based on their amplitude.
+
+    Parameters
+    ----------
+    x : 1D array_like
+        data.
+    bpm : number, approximate bpm (num frames between beats),detect peaks within frame range.
+
+    Returns
+    -------
+    ind : 1D array_like
+        indeces of the peaks in `x`.
+    """
+
+    ind = []
+    beat_start = 0
+    beat_end = int(bpm*1.1) # add some buffer for first peak
+    last_frame = len(x) - 1
+    slide = True
+    while slide:
+        if beat_end == last_frame:
+            slide = False
+
+        i = np.argmax(x[beat_start:beat_end])
+        i += beat_start
+        ind.append(i)
+
+        beat_end = int(i + bpm/2) # if this is the first beat, correct the end to be half way between this beat and the next
+
+        beat_start = beat_end
+        beat_end = beat_start + bpm
+
+        if beat_start >= last_frame - int(bpm * .25): # if within a quarter beat from the end, stop
+            slide = False
+        elif beat_end > last_frame:
+            beat_end = last_frame
+
+    return np.array(ind)
 
 def detect_peaks(x, mph=None, mpd=1, threshold=0, edge='rising',
                  kpsh=False, valley=False, show=False, ax=None, pdf_fig=None):
-
     """Detect peaks in data based on their amplitude and other features.
 
     Parameters

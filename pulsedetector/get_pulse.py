@@ -9,7 +9,6 @@
 
 from lib.device import Camera, Video
 from lib.processor_multi_channel import GetPulseMC
-from lib.interface import plotXY, imshow, waitKey, destroyWindow
 import cv2
 from cv2 import moveWindow
 import argparse
@@ -40,10 +39,12 @@ class getPulseApp(object):
         self.roi_percent = kwargs.get('roi_percent', 0.2)
         self.roi = kwargs.get('roi', None)
         self.find_faces = kwargs.get('find_faces', False)
+        self.face_regions = kwargs.get('face_regions', ['forehead', 'nose', 'lcheek', 'rcheek', 'chin'])
         self.color_space = kwargs.get('color_space', 'rgb')
         self.color_plane = kwargs.get('color_plane', None)
         self.output_dir = kwargs.get('output_dir', None)
         grid_size = kwargs.get('grid_size', 1)
+        self.video_start_second = kwargs.get('video_start_second', 0)
 
         self.csv_fout = None
         self.vid_out = None
@@ -77,13 +78,14 @@ class getPulseApp(object):
             print("Invalid video, exiting")
             return
 
-        nframes = int(self.video.numFrames);
+        nframes = int(self.video.numFrames - self.fixed_fps * self.video_start_second);
 
         self.processor = GetPulseMC( find_faces = self.find_faces,
+                                     face_regions = self.face_regions,
                                      roi_percent = self.roi_percent,
                                      roi = self.roi,
                                      fixed_fps = self.fixed_fps,
-                                     grid_size   = grid_size,
+                                     grid_size = grid_size,
                                      nframes = nframes,
                                      output_dir = self.output_dir,
                                      param_suffix = param_suffix)
@@ -93,13 +95,15 @@ class getPulseApp(object):
         """
         Writes outputs to a mat file
         """
-        sio.savemat(self.csv_fout, {'data':self.processor.vals_out})
+        sio.savemat(self.csv_fout, {'data':self.processor.vals_out, 'start_sec': self.video_start_second, 'roi': self.processor.roi, 'sub_roi_type_map': self.processor.sub_roi_type_map})
 
     # Run this app
     def run(self):
         print("Starting App")
+        i = 0
         while self.valid:
-            self.main_loop_no_gui()
+            self.main_loop_no_gui(i)
+            i += 1
 
         if self.csv_fout is not None:
             self.write_file()
@@ -107,7 +111,7 @@ class getPulseApp(object):
         print("Finished")
 
     # Loop with GUI disabled
-    def main_loop_no_gui(self):
+    def main_loop_no_gui(self, frame_num):
         """
         Single iteration of the application's main loop.
         """
@@ -119,6 +123,9 @@ class getPulseApp(object):
 
         # Get current image frame from video
         flag, frame = self.video.get_frame()
+
+        if frame_num < self.fixed_fps * self.video_start_second:
+            return
 
         self.h, self.w, _ = frame.shape
         # print frame.shape
