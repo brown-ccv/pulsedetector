@@ -149,7 +149,7 @@ class GetPulseMC(object):
 
             # tighten roi to smaller portion of face (less background area)
             if 'forehead' in self.face_regions:
-                self.assign_sub_rois('forehead', self.get_subface_coord(0.5, .2, .6, 0.1), frame_idx)
+                self.assign_sub_rois('forehead', self.get_subface_coord(0.5, .2, .5, 0.1), frame_idx)
 
             if 'nose' in self.face_regions:
                 self.assign_sub_rois('nose', self.get_subface_coord(0.5, .5, .1, 0.15), frame_idx)

@@ -15,7 +15,7 @@ matplotlib.use('PS')
 import matplotlib.pyplot as plt
 from scipy import interpolate, fftpack
 import scipy.io as sio
-from sklearn.decomposition import PCA
+from sklearn.decomposition import PCA, FastICA
 
 from lib.device import Video
 from lib import signal_process_util as sp_util
@@ -85,38 +85,53 @@ class getPulseFromFileApp(object):
 
             # Upsample video using cubic interpolation to improve variability / peak detection
             # last time entry is all 0s, so indexing to -2 instead of end
-            self.processed_data = self.data[0:-2, :, [0,2]] # just time and green channel
+            # new_t = np.arange(self.data[0,0,0], self.data[-2,0,0], 1./self.sample_rate)
+            # self.fps = self.sample_rate
+            # self.processed_data = np.zeros([len(new_t),shape[1],shape[2]])
             # for grid_idx in range(0,shape[1]):
-            #     f = interpolate.interp1d(self.data[:, grid_idx, 0], self.data[:, grid_idx, 2], kind='cubic', fill_value="extrapolate")
-            #     self.processed_data[:, grid_idx, 0] = new_t
-            #     self.processed_data[:, grid_idx, 1] = f(new_t)
+            #     for channel in range(1,shape[2]):
+            #         f = interpolate.interp1d(self.data[0:-2, grid_idx, 0], self.data[0:-2, grid_idx, channel], kind='cubic', fill_value="extrapolate")
+            #         self.processed_data[:, grid_idx, 0] = new_t
+            #         self.processed_data[:, grid_idx, channel] = f(new_t)
 
+            self.processed_data = self.data[0:-2,:,:] # if not upsampling
             # sio.savemat(self.output_dir + "/" + self.param_suffix + "_pre-processed.mat", {'processed_data': self.processed_data})
-
             if bandpass:
                 for grid_idx in range(0,shape[1]):
-                    self.processed_data[:, grid_idx, 1] = sp_util.bandpass(self.processed_data[:, grid_idx, 1], self.fps, lowcut, highcut)
-
-            self.processed_data[:,:,1] -= self.processed_data[:,:,1].mean()
-            self.processed_data[:,:,1] /= self.processed_data[:,:,1].std()
-
-            pca = PCA(n_components=10)
-            # remove outliers and run pca
-            for region_type, region_idx in self.sub_roi_type_map.items():
-                region_idx = range(region_idx[0],region_idx[-1]+1)
-                diffs = np.amax(np.abs(self.processed_data[1:-1, region_idx, 1] - self.processed_data[0:-2, region_idx, 1]), axis=0)
-                keep_idx = np.where(diffs < diffs.mean() + 1.5*diffs.std())[0]
-                keep_idx += region_idx[0]
-                pca_data = self.processed_data[:, keep_idx, 1]
-                print("Removed ", len(region_idx) - len(keep_idx), " outlier sub ROIs from region ", region_type)
-
-                print("Running PCA on region ", region_type)
-                self.pca_components[region_type] = pca.fit_transform(pca_data)
-                self.pca_data[region_type] = pca_data
+                    for channel in range(1,shape[2]):
+                        self.processed_data[:, grid_idx, channel] = sp_util.bandpass(self.processed_data[:, grid_idx, channel], self.fps, lowcut, highcut)
+                        self.processed_data[:, grid_idx, channel] -= self.processed_data[:, grid_idx, channel].mean()
+                        self.processed_data[:, grid_idx, channel] /= self.processed_data[:, grid_idx, channel].std()
 
             csv_fout = self.output_dir + "/" + self.param_suffix + "_processed.mat"
-            sio.savemat(csv_fout, {'processed_data': self.processed_data, 'pca': self.pca_components})
+            sio.savemat(csv_fout, {'processed_data': self.processed_data})
 
+    def process_window(self, frame_range):
+        ica = FastICA(n_components=3)
+        pca = PCA(n_components=3)
+        ica_components = {}
+        # remove outliers and run pca
+        for region_type, region_idx in self.sub_roi_type_map.items():
+            region_idx = range(region_idx[0],region_idx[-1]+1)
+            diffs = np.amax(np.abs(self.processed_data[1:-1, region_idx, 1] - self.processed_data[0:-2, region_idx, 1]), axis=0)
+            keep_idx = np.where(diffs < diffs.mean() + 1.5*diffs.std())[0]
+            keep_idx += region_idx[0]
+            # print("Removed ", len(region_idx) - len(keep_idx), " outlier sub ROIs from region ", region_type)
+
+            ica_components[region_type] = np.zeros([self.processed_data.shape[0], keep_idx.shape[0]])
+            for i, idx in enumerate(keep_idx):
+                # components = ica.fit_transform(self.processed_data[:, idx, [1,2,3]])
+                # best_component = 0
+                # max_power = 0
+                # for component in range(components.shape[1]):
+                #     freqs, fft, even_freqs, fft_smooth, bpm_idx = self.compute_fft(time=self.processed_data[:,idx,0],data=components[:,component])
+                #     if fft_smooth[bpm_idx] > max_power:
+                #         best_component = component
+                #         max_power = fft_smooth[bpm_idx]
+                # ica_components[region_type][:, i] = components[:, best_component]
+                ica_components[region_type][:, i] = self.processed_data[:,idx,2]
+
+        return ica_components
 
     def plot_vals(self, **kwargs):
         x_data = kwargs.get('x_data', [])

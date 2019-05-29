@@ -101,7 +101,7 @@ def compute_fft(time, data, Fs):
 
     freqs = np.linspace(0.0, Fs/2., L//2)    #frequencies
     freqs = 60. * freqs                     #convert to BPM (pulse)
-    idx = np.where((freqs >= 45) & (freqs <= 300)) #ideal filter
+    idx = np.where((freqs >= 45) & (freqs <= 180)) #ideal filter
 
     if not np.sum(idx):
         return [], [], []
@@ -144,19 +144,46 @@ def detect_beats(x, bpm):
     """
 
     ind = []
+    beat_frames = np.zeros(len(x))
+    last_beat = None
     beat_start = 0
-    beat_end = int(bpm*1.1) # add some buffer for first peak
+    beat_end = bpm
     last_frame = len(x) - 1
     slide = True
+    minval = np.min(x)
+    maxval = np.max(x)
+    small_diff = (maxval - minval) * .05
     while slide:
         if beat_end == last_frame:
             slide = False
 
-        i = np.argmax(x[beat_start:beat_end])
-        i += beat_start
-        ind.append(i)
+        peaks = detect_peaks(x[beat_start:beat_end])
+        if len(peaks) == 0:
+            beat_end += int(bpm/2)
+        else:
+            if len(peaks) == 1:
+                i = peaks[0]
+            else:
+                idx = np.argsort(x[beat_start:beat_end][peaks]) # peaks by height
+                if x[beat_start:beat_end][peaks][idx[-1]] - x[beat_start:beat_end][peaks][idx[-2]] < small_diff:
+                    if idx[-2] < idx[-1]:
+                        i = peaks[idx[-2]]
+                    else:
+                        i = peaks[idx[-1]]
+                else:
+                    i = peaks[idx[-1]]
 
-        beat_end = int(i + bpm/2) # if this is the first beat, correct the end to be half way between this beat and the next
+            i += beat_start
+            ind.append(i)
+
+            if last_beat == None:
+                last_beat = i
+            else:
+                frames = i - last_beat
+                beat_frames[last_beat:i] = frames
+                last_beat = i
+
+            beat_end = int(i + bpm/2) # start looking for the next beat a half cycle from this peak
 
         beat_start = beat_end
         beat_end = beat_start + bpm
@@ -166,7 +193,7 @@ def detect_beats(x, bpm):
         elif beat_end > last_frame:
             beat_end = last_frame
 
-    return np.array(ind)
+    return np.array(ind), beat_frames
 
 def detect_peaks(x, mph=None, mpd=1, threshold=0, edge='rising',
                  kpsh=False, valley=False, show=False, ax=None, pdf_fig=None):

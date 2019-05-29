@@ -112,6 +112,8 @@ def process(**kwargs):
                 nframes = App.processed_data.shape[0]
                 nwindows = int(np.ceil((nframes - frame_window_size) / frame_offset) + 1)
                 peaks = {}
+                data = {}
+                beat_frames = {}
                 while slide:
                     print("Analyzing window ", window_id)
                     # check if this is the last iteration
@@ -121,10 +123,12 @@ def process(**kwargs):
                     frame_range = range(window_start, window_end)
                     x_data = App.processed_data[frame_range, 0, 0] #time
 
-                    for region, components in App.pca_components.items():
+                    ica_components = App.process_window(frame_range)
+
+                    for region, components in ica_components.items():
                         best_component = 0
                         max_bpm = 0
-                        # max_power = 0
+                        max_power = 0
                         num_component = len(components[0,:])
                         counts = {}
                         for i in range(num_component):
@@ -133,44 +137,50 @@ def process(**kwargs):
                             round_bpm = np.round(even_freqs[bpm_idx])
                             if round_bpm > max_bpm:
                                 max_bpm = round_bpm
-                            # if round_bpm not in counts:
-                            #     counts[round_bpm] = [1, i, np.sum(fft_smooth[bpm_idx-2:bpm_idx+2])] # count, current best index, current max power
-                            # else:
-                            #     counts[round_bpm][0] += 1 # increment count
-                            #     max_power = np.sum(fft_smooth[bpm_idx-2:bpm_idx+2])
-                            #     if max_power > counts[round_bpm][2]:
-                            #         counts[round_bpm][1] = i
-                            #         counts[round_bpm][2] = max_power
-                            # max_power_idx = np.argmax(fft)
-                            # first_harmonic_idx = np.where(freqs == freqs[max_power_idx] * 2)
-                            # pct_power = (fft[max_power_idx] + fft[first_harmonic_idx]) / np.sum(fft)
-                            # if pct_power > max_power:
+                            # if fft_smooth[bpm_idx] > max_power:
+                            #     max_power = fft_smooth[bpm_idx]
                             #     best_component = i
-                            #     max_power = pct_power
+                            if round_bpm not in counts:
+                                counts[round_bpm] = [1, i, np.sum(fft_smooth[bpm_idx-2:bpm_idx+2])] # count, current best index, current max power
+                            else:
+                                counts[round_bpm][0] += 1 # increment count
+                                max_power = np.sum(fft_smooth[bpm_idx-2:bpm_idx+2])
+                                if max_power > counts[round_bpm][2]:
+                                    counts[round_bpm][1] = i
+                                    counts[round_bpm][2] = max_power
+                            max_power_idx = np.argmax(fft)
+                            first_harmonic_idx = np.where(freqs == freqs[max_power_idx] * 2)
+                            pct_power = (fft[max_power_idx] + fft[first_harmonic_idx]) / np.sum(fft)
+                            if pct_power > max_power:
+                                best_component = i
+                                max_power = pct_power
 
-                        # best_bpm = 0
-                        # count_bpm = 0
-                        # for bpm, vals in counts.items():
-                        #     if vals[0] > count_bpm:
-                        #         count_bpm = vals[0]
-                        #         best_bpm = bpm
-                        #     elif vals[0] == count_bpm:
-                        #         if vals[2] > counts[best_bpm][2]:
-                        #             count_bpm = vals[0]
-                        #             best_bpm = bpm
-                        #
-                        # best_component = counts[best_bpm][1]
+                        best_bpm = 0
+                        count_bpm = 0
+                        for bpm, vals in counts.items():
+                            if vals[0] > count_bpm:
+                                count_bpm = vals[0]
+                                best_bpm = bpm
+                            elif vals[0] == count_bpm:
+                                if vals[2] > counts[best_bpm][2]:
+                                    count_bpm = vals[0]
+                                    best_bpm = bpm
 
-                        if True: #count_bpm > num_component * .25:
-                            pulse_vector = components[frame_range, best_component]
-                            print(region, ": ", max_bpm)
-                            bpm = int( 60 / max_bpm * App.fps) # frequency in seconds * num frames per second for beat distance in frames
-                            print("frames window:", bpm)
-                            pulse_peaks = sp_util.detect_beats(pulse_vector, bpm=bpm)
-                            pulse_peaks += window_start # translate to absolute indices instead of relative
-                            if region not in peaks:
-                                peaks[region] = np.zeros([nwindows, nframes])
-                            peaks[region][window_id, pulse_peaks] = 1
+                        best_component = counts[best_bpm][1]
+
+                        pulse_vector = components[frame_range, best_component]
+                        # print(region, ": ", best_bpm, "component: ", best_component)
+                        bpm = int( 60 / best_bpm * App.fps) # frequency in seconds * num frames per second for beat distance in frames
+                        # print("frames window:", bpm)
+                        pulse_peaks, frames_between_beats = sp_util.detect_beats(pulse_vector, bpm=bpm)
+                        pulse_peaks += window_start # translate to absolute indices instead of relative
+                        if region not in peaks:
+                            peaks[region] = np.zeros([nwindows, nframes])
+                            beat_frames[region] = np.zeros([nwindows, nframes])
+                            data[region] = np.zeros([nwindows, nframes])
+                        peaks[region][window_id, pulse_peaks] = 1
+                        data[region][window_id, frame_range] = pulse_vector
+                        beat_frames[region][window_id, frame_range] = frames_between_beats
 
                     # set up next iteration
                     window_start += frame_offset
@@ -180,7 +190,7 @@ def process(**kwargs):
                         window_end = nframes
 
                 csv_fout = App.output_dir + "/" + param_suffix + "_pulse_peaks.mat"
-                sio.savemat(csv_fout, {'peaks': peaks})
+                sio.savemat(csv_fout, {'peaks': peaks, 'component': data, 'beat_frames': beat_frames})
 
 
             if plot_data:
