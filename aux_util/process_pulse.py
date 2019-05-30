@@ -33,6 +33,6 @@ if __name__ == '__main__':
                     output_dir = output_dir,
                     files_prefix ='/' + f, # + '.mp4',
                     video_start_second = 0,
-                    window_size = 15,
+                    window_size = 30,
                     slide_pct = .1
                     );
