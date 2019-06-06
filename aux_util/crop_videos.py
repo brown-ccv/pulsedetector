@@ -15,15 +15,14 @@ if __name__ == '__main__':
     from lib.video_process_util import crop, resize
 
 
-    data_date = '17-10-2018'
     data_dir = "/Users/mmcgrat3/src/pulse-test"
     output_dir = '/Users/mmcgrat3/src/pulse-test/find-face'
-    pattern = 'resting-state_2018*05_HR-AV.mp4'
-    face_regions = ['forehead', 'nose', 'lcheek', 'rcheek', 'chin']
+    pattern = '*-05_HR-AV.mp4'
 
     from_dir = "/Users/mmcgrat3/src/pulse-test"
     to_dir = "/Users/mmcgrat3/src/pulse-test/cropped"
     resize_dir = "/Users/mmcgrat3/src/pulse-test/resized"
+    resize = False
 
     if not os.path.isdir(to_dir +"/"):
         os.mkdir(to_dir +"/");
@@ -38,6 +37,7 @@ if __name__ == '__main__':
                 0.5, 0.4, 0.3, 0.5
                     );
 
-        print("Resizing ",  new_file, " to ", resize_file)
-        resize_file = resize_dir + "/" + file_base_name + ".mov"
-        resize(new_file, resize_file, 0.5)
+        if resize:
+            resize_file = resize_dir + "/" + file_base_name + ".mov"
+            print("Resizing ",  new_file, " to ", resize_file)
+            resize(new_file, resize_file, 0.5)

@@ -82,20 +82,24 @@ def compute_fft(time, data, Fs):
         dim = 1
 
     #------ Data preprocessing ------------
-    even_times = np.linspace(time[0], time[-1], L)
-    f_interp = interpolate.interp1d(time, data, kind='linear', axis=0)
-    interpolated = f_interp(even_times)
-    interpolated = (np.hamming(L) * interpolated.T).T
-    interpolated = interpolated - np.mean(interpolated, axis=0)
+    # even_times = np.linspace(time[0], time[-1], L)
+    # f_interp = interpolate.interp1d(time, data, kind='linear', axis=0)
+    # interpolated = f_interp(even_times)
+    # interpolated = data
+    # interpolated = (np.hamming(L) * interpolated.T).T
+    # interpolated = interpolated - np.mean(interpolated, axis=0)
+    # data = interpolated
 
-    nfft = int(2**np.ceil(np.log2(L))) #force length to be next power of 2
+    # nfft = int(2**np.ceil(np.log2(L))) #force length to be next power of 2
     nfft = L
-    L=nfft
+    # L=nfft
 
     #------- FFT and ideal filter -------------
     raw = fftpack.fft(data, nfft, axis=0)    #run fft
     fft = np.abs(raw[0:L//2])                #get magnitude/real part
     phase = np.angle(raw[0:L//2])
+
+    return 60. * np.linspace(0.0, Fs, L), np.abs(raw), np.angle(raw)
 
     # print phase.shape
 
@@ -122,11 +126,21 @@ def compute_fft(time, data, Fs):
     pphase = pphase.T
     pfreq = freqs[idx]
 
-    # fft  = 10.*np.log10(fft/ np.min(fft))   #convert to dB
-    pruned  = (pruned - np.min(pruned)) / (np.max(pruned) - np.min(pruned))  # Normalize
-    pruned  = (pruned) / np.sum(pruned)  # Probability
+    # pruned  = 10.*np.log10(pruned/ np.min(pruned))   #convert to dB
+    # pruned  = (pruned - np.min(pruned)) / (np.max(pruned) - np.min(pruned))  # Normalize
+    # pruned  = (pruned) / np.sum(pruned)  # Probability
 
     return pfreq, pruned, pphase
+
+# perform spectracl subtraction to remove noise and return de-noised mag and reconstructed signal with ideal filter between 45 and 180 bpm
+def spectral_subtract(noise_mag, signal_mag, signal_phase, nfft, freqs):
+    clean_spec = signal_mag - noise_mag
+    clean_spec[clean_spec < 0.] = 0.
+
+    enh_spec = np.multiply(clean_spec, np.exp(1j * signal_phase))
+    enh_signal = np.abs(fftpack.ifft(enh_spec, nfft))
+
+    return clean_spec, enh_signal
 
 def detect_beats(x, bpm):
     """Detect beats in pulse data based on their amplitude.

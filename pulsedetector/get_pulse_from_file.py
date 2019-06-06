@@ -49,14 +49,18 @@ class getPulseFromFileApp(object):
         self.output_dir = kwargs.get('output_dir', '')
         self.param_suffix = kwargs.get('param_suffix', 'rgb-20')
         bandpass = kwargs.get('bandpass', True)
+        upsample = kwargs.get('upsample', False)
+        self.analysis_type = kwargs.get('analysis_type', 'green')
+        self.remove_outliers = kwargs.get('remove_outliers', False)
         self.fname = None
         self.data = []
         self.sub_roi_type_map = {}
         self.processed_data = []
-        self.sample_rate = 250.0
+        self.upsample_rate = 250.0
         self.pca_components = {}
         self.ica_components = {}
         self.pca_data = {}
+        self.control = False
 
         if videofile and os.path.exists(videofile):
             print("Processing file: ", videofile)
@@ -79,63 +83,71 @@ class getPulseFromFileApp(object):
             for region in file_data['sub_roi_type_map'][0,0].dtype.names:
                 self.sub_roi_type_map[region] = file_data['sub_roi_type_map'][0,0][region][0]
 
+            if 'control' in self.sub_roi_type_map:
+                self.control = True
+
             print("Done reading data of size: " , self.data.shape)
 
             shape = self.data.shape
 
             # Upsample video using cubic interpolation to improve variability / peak detection
             # last time entry is all 0s, so indexing to -2 instead of end
-            new_t = np.arange(self.data[0,0,0], self.data[-2,0,0], 1./self.sample_rate)
-            self.fps = self.sample_rate
-            self.processed_data = np.zeros([len(new_t),shape[1],shape[2]])
-            for grid_idx in range(0,shape[1]):
-                for channel in range(1,shape[2]):
-                    f = interpolate.interp1d(self.data[0:-2, grid_idx, 0], self.data[0:-2, grid_idx, channel], kind='cubic', fill_value="extrapolate")
-                    self.processed_data[:, grid_idx, 0] = new_t
-                    self.processed_data[:, grid_idx, channel] = f(new_t)
+            if upsample:
+                new_t = np.arange(self.data[0,0,0], self.data[-2,0,0], 1./self.upsample_rate)
+                self.fps = self.upsample_rate
+                self.processed_data = np.zeros([len(new_t),shape[1],shape[2]])
+                for grid_idx in range(0,shape[1]):
+                    for channel in range(1,shape[2]):
+                        f = interpolate.interp1d(self.data[0:-2, grid_idx, 0], self.data[0:-2, grid_idx, channel], kind='cubic', fill_value="extrapolate")
+                        self.processed_data[:, grid_idx, 0] = new_t
+                        self.processed_data[:, grid_idx, channel] = f(new_t)
+            else:
+                self.processed_data = self.data[0:-2,:,:] # if not upsampling
 
-            # self.processed_data = self.data[0:-2,:,:] # if not upsampling
-            # sio.savemat(self.output_dir + "/" + self.param_suffix + "_pre-processed.mat", {'processed_data': self.processed_data})
             if bandpass:
                 for grid_idx in range(0,shape[1]):
                     for channel in range(1,shape[2]):
                         self.processed_data[:, grid_idx, channel] = sp_util.bandpass(self.processed_data[:, grid_idx, channel], self.fps, lowcut, highcut)
-                        self.processed_data[:, grid_idx, channel] -= self.processed_data[:, grid_idx, channel].mean()
-                        self.processed_data[:, grid_idx, channel] /= self.processed_data[:, grid_idx, channel].std()
 
+            self.param_suffix += "-" + str(bandpass) + '-' + str(int(self.fps))
             csv_fout = self.output_dir + "/" + self.param_suffix + "_processed.mat"
-            sio.savemat(csv_fout, {'processed_data': self.processed_data})
+            sio.savemat(csv_fout, {'processed_data': self.processed_data, 'sample_rate': self.fps, 'bandpassed': bandpass})
 
     def process_window(self, frame_range):
-        ica = FastICA(n_components=3)
-        pca = PCA(n_components=10)
-        ica_components = {}
-        # remove outliers and run pca
+        ica = FastICA(n_components=3, max_iter=1000, algorithm='deflation')
+        pca = PCA()
+        components = {} # initialize dictionary
+
+        # remove outliers and run ica
         for region_type, region_idx in self.sub_roi_type_map.items():
-            region_idx = slice(region_idx[0],region_idx[-1]+1)
-            # print(self.processed_data.shape)
-            # print(self.processed_data[frame_range[1:], region_idx, 2].shape)
-            # print(self.processed_data[frame_range[:-1], region_idx, 2].shape)
-            # diffs = np.amax(np.abs(self.processed_data[frame_range[1:], region_idx, 2] - self.processed_data[frame_range[:-1], region_idx, 2]), axis=0)
-            # keep_idx = np.where(diffs < diffs.mean() + 1.5*diffs.std())[0]
-            # keep_idx += region_idx[0]
-            # print("Removed ", len(region_idx) - len(keep_idx), " outlier sub ROIs from region ", region_type)
+            # normalize the data for this time period and sub-roi
+            region_idx_slice = slice(region_idx[0],region_idx[-1]+1)
+            data = self.processed_data[frame_range, region_idx_slice, 1:]
+            data -= data.mean(axis=0)
+            data /= data.std(axis=0)
 
-            ica_components[region_type] = pca.fit_transform(self.processed_data[frame_range, region_idx, 2])
-            # ica_components[region_type] = np.zeros([len(frame_range), len(region_idx)])
-            # for i, idx in enumerate(region_idx):
-            #     components = pca.fit_transform(self.processed_data[frame_range, idx, 1:])
-            #     best_component = 0
-            #     max_power = 0
-            #     for component in range(components.shape[1]):
-            #         freqs, fft, even_freqs, fft_smooth, bpm_idx = self.compute_fft(time=self.processed_data[frame_range,idx,0],data=components[:,component])
-            #         if fft_smooth[bpm_idx] > max_power:
-            #             best_component = component
-            #             max_power = fft_smooth[bpm_idx]
-            #     ica_components[region_type][:, i] = components[:, best_component]
-                # ica_components[region_type][:, i] = self.processed_data[frame_range,idx,2]
+            # remove outlier sub-regions based on green channel movement
+            if self.remove_outliers:
+                diffs = np.amax(np.abs(data[1:, :, 1] - data[:-1, :, 1]), axis=0)
+                keep_idx = np.where(diffs <= diffs.mean() + 1.5*diffs.std())[0]
+                n_removed = len(diffs)- len(keep_idx)
+                if n_removed > 0:
+                    print("Removed ", len(diffs)- len(keep_idx), " outlier sub ROIs from region ", region_type)
+            else:
+                keep_idx = np.arange(data.shape[1])
 
-        return ica_components
+            # return processed green channel data
+            if self.analysis_type == 'green':
+                components[region_type] = data[:, keep_idx, 1]
+            # return three ica components for sub_region on average
+            elif self.analysis_type == 'ica':
+                ica_data = np.mean(data[:,keep_idx,:], axis=1)
+                components[region_type] = ica.fit_transform(ica_data)
+            # return pca components matching number of sub-regions (performed on green channel only)
+            elif self.analysis_type == 'pca':
+                components[region_type] = pca.fit_transform(data[:, keep_idx, 1])
+
+        return components
 
     def plot_vals(self, **kwargs):
         x_data = kwargs.get('x_data', [])
@@ -185,7 +197,7 @@ class getPulseFromFileApp(object):
 
         bpm_idx = np.argmax(fft_smooth)
 
-        return freqs, fft, even_freqs, fft_smooth, bpm_idx
+        return freqs, fft, phase, even_freqs, fft_smooth, bpm_idx
 
     def plot_fft(self, **kwargs):
 
@@ -199,9 +211,9 @@ class getPulseFromFileApp(object):
         #              Take Care of VideoSignal:
         #   Compute fft, get max value and attach to plot label
         #---------------------------------------------------------------
-        freqs, fft, even_freqs, fft_smooth, bpm_idx = self.compute_fft(time=time, data=data)
+        freqs, fft, phase, even_freqs, fft_smooth, bpm_idx = self.compute_fft(time=time, data=data)
 
-        new_label = label + ': ' + "{:.2f} bpm".format(even_freqs[bpm_idx])
+        new_label = label + ': ' + "{:.2f} bpm".format(bpm_idx)
 
         #------ Plot ------------
         self.plot_vals(x_data = freqs,

@@ -14,25 +14,35 @@ if __name__ == '__main__':
     from pulsedetector.batch_process import process
 
 
-    data_date = '17-10-2018'
     data_dir = "/Users/mmcgrat3/src/pulse-test/cropped"
     output_dir = '/Users/mmcgrat3/src/pulse-test/find-face'
-    files = [ 'resting-state_2018*05_HR-AV.mov']
-    face_regions = ['forehead', 'nose', 'lcheek', 'rcheek', 'chin']
+    # files = [ 'resting-state_2018-10-17_15-21-05_HR-AV-ideal-from-0.75-to-3-alpha-100-level-8-chromAtn-1.avi']
+    files = [ '*-05_HR-AV.mov']
+    face_regions = ['forehead', 'nose', 'lcheek', 'rcheek', 'chin', 'fullface']
+    # face_regions = ['fullface']
 
     for f in files:
-        process (   process_data = False,
-                    analyze_data = True,
-                    plot_raw_data = False,
-                    plot_data = False,
-                    plot_intervals = [[10,40], [70,100]],
-                    grid_size = 5,
+        process (   data_dir = data_dir,
+                    output_dir = output_dir,
+                    files_prefix ='/' + f,
+
+                    process_data = False,
+                    grid_size = 3,
                     find_faces = True,
                     face_regions = face_regions,
-                    data_dir = data_dir,
-                    output_dir = output_dir,
-                    files_prefix ='/' + f, # + '.mp4',
                     video_start_second = 0,
-                    window_size = 30,
-                    slide_pct = .1
+                    control = False,             # also affects analysis stage
+                    control_region = [50,50,150,150],
+                    save_roi_video = False,
+
+                    analyze_data = True,
+                    analysis_type = 'green',  # other options are ica, pca
+                    window_size = 100,
+                    slide_pct = .1,
+                    upsample = False,
+                    remove_outliers = False,
+
+                    plot_raw_data = False,
+                    plot_data = False,
+                    plot_intervals = [[10,40], [70,100]]
                     );

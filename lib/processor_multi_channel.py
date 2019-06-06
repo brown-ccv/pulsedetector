@@ -12,6 +12,7 @@ import cv2
 import os
 import sys
 from . import signal_process_util as sp_util
+from .device import Video
 
 def resource_path(relative_path):
     """ Get absolute path to resource"""
@@ -30,21 +31,22 @@ class GetPulseMC(object):
         # Parse arguments
         self.find_faces = kwargs.get('find_faces', True)
         self.face_regions = kwargs.get('face_regions', ['forehead', 'nose', 'lcheek', 'rcheek', 'chin'])
-        self.roi_percent = kwargs.get('roi_percent', 1.0)
         self.grid_size = kwargs.get('grid_size', 1)
         self.nframes = kwargs.get('nframes', 0)
         self.fixed_fps = kwargs.get('fixed_fps', None)
         self.roi = kwargs.get('roi', None)
         self.output_dir = kwargs.get('output_dir', None)
         self.param_suffix = kwargs.get('param_suffix', None)
-
+        self.control = kwargs.get('control', False)
+        self.control_region = kwargs.get('control_region', None)
+        self.save_roi_video = kwargs.get('save_roi_video', False)
 
         # Initialize parameters
         self.nvals = 4 #time + 3 channels
         self.vals_out = np.zeros([self.nframes, self.grid_size**2, self.nvals]) # This is probably wrong, but gets updated later
         self.sub_roi_grid = []
         self.sub_roi_type_map = {}
-        self.grid_res = self.roi_percent/self.grid_size
+        self.grid_res = 1.0/self.grid_size
         self.grid_centers = 0.5 + self.grid_res*np.linspace(-(self.grid_size-1)/2., (self.grid_size-1)/2., self.grid_size)
         self.frame_in = np.zeros((10, 10))
         self.frame_out = np.zeros((10, 10))
@@ -52,6 +54,7 @@ class GetPulseMC(object):
         self.buffer_size = 2**9
         self.data_buffer_grid = []
         self.times = []
+        self.face_size = None
 
         self.t0 = time.time()
         self.offline_t = 0.;
@@ -60,6 +63,7 @@ class GetPulseMC(object):
             print("Cascade file not present!")
         self.face_cascade = cv2.CascadeClassifier(dpath)
         self.last_center = np.array([0, 0])
+
 
     def shift(self, detected):
         x, y, w, h = detected
@@ -72,6 +76,20 @@ class GetPulseMC(object):
     def draw_rect(self, rect, col=(0, 255, 0)):
         x, y, w, h = rect
         cv2.rectangle(self.first_frame, (x, y), (x + w, y + h), col, 1)
+
+    def save_draw_rect(self, col=(0, 255, 0)):
+        frame = self.frame_in[:,:,:]
+        for rect in self.sub_roi_grid:
+            x, y, w, h = rect
+            cv2.rectangle(frame, (x, y), (x + w, y + h), col, 1)
+        self.vidOut.write(frame)
+
+    def resize_roi(self):
+        x, y, w, h = self.roi
+        xc = x + w/2
+        yc = y + h/2
+        new_w, new_h = self.face_size
+        self.roi = [int(xc - new_w/2), int(yc - new_h/2), new_w, new_h]
 
     def get_subface_coord(self, fh_x, fh_y, fh_w, fh_h):
         x, y, w, h = self.roi
@@ -101,8 +119,6 @@ class GetPulseMC(object):
         for i in self.grid_centers:
             for j in self.grid_centers:
                 sub_roi = self.get_subroi_coord(region_area, i, j, self.grid_res, self.grid_res)
-                r,g,b = self.get_roi_means(sub_roi)
-                # if not (r>100 and g>100 and b>100): # too much white (cap/wall) in frame filtered out
                 self.sub_roi_type_map[region_type].append(len(self.sub_roi_grid))
                 self.sub_roi_grid.append(sub_roi)
                 self.data_buffer_grid.append([])
@@ -127,25 +143,38 @@ class GetPulseMC(object):
         if frame_idx == 0:
             self.data_buffer_grid = []
             self.first_frame = np.copy(self.frame_in)
+            if self.save_roi_video:
+                videoOutFname = os.path.join(self.output_dir, f'{self.param_suffix}_roi_video.mov')
+                fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+                self.vidOut = cv2.VideoWriter(videoOutFname, fourcc, self.fixed_fps, (self.frame_in.shape[1], self.frame_in.shape[0]))
+                if not self.vidOut.isOpened():
+                    print("Error opening video stream, setting save_roi_video to False")
+                    self.save_roi_video = False
 
         if self.find_faces:
+            last_roi = self.roi
+            self.roi = None
             self.data_buffer_grid = []
             self.sub_roi_grid = []
             detected = list(self.face_cascade.detectMultiScale(self.gray,
                                                                scaleFactor=1.1,
                                                                minNeighbors=4,
-                                                               minSize=(50, 50),
-                                                               flags=cv2.CASCADE_SCALE_IMAGE))
+                                                               minSize=(50, 50)))
 
-            if len(detected) > 0:
-                detected.sort(key=lambda a: a[-1] * a[-2])
-
-                if self.shift(detected[-1]) > 10:
-                    self.roi = detected[-1]
+            if len(detected) == 1:
+                self.roi = detected[0]
+            else:
+                print("Warning, face detection didn't work on frame", frame_idx, "using last frame's ROI")
+                self.roi = last_roi
 
             if self.roi is None:
                 print("Something went wrong with face detection, try running with find_faces = False and manually specifying roi")
                 exit()
+
+            if self.face_size is None:
+                self.face_size = (self.roi[2], self.roi[3]) # w,h
+
+            self.resize_roi() # make sure face size is consistent
 
             # tighten roi to smaller portion of face (less background area)
             if 'forehead' in self.face_regions:
@@ -163,16 +192,34 @@ class GetPulseMC(object):
             if 'chin' in self.face_regions:
                 self.assign_sub_rois('chin', self.get_subface_coord(0.5, .99, .13, 0.13), frame_idx)
 
+            if 'fullface' in self.face_regions:
+                self.assign_sub_rois('fullface', self.get_subface_coord(0.5, 0.6, 0.6, 0.8), frame_idx)
+
 
         elif self.roi is None:
+            self.data_buffer_grid = []
+            self.sub_roi_grid = []
             w, h, c = self.frame_in.shape;
             self.roi = [0, 0, h-1, w-1]
-            self.assign_sub_rois('', self.roi, frame_idx)
+            self.assign_sub_rois('roi', self.roi, frame_idx)
+
+        else:
+            self.data_buffer_grid = []
+            self.sub_roi_grid = []
+            self.assign_sub_rois('roi', self.roi, frame_idx)
+
+        if self.control:
+            self.assign_sub_rois('control', self.control_region, frame_idx)
 
         if frame_idx == 0:
             self.vals_out = np.zeros([self.nframes, len(self.sub_roi_grid), self.nvals])
             # save image to show what the regions of interest are
             cv2.imwrite(os.path.join(self.output_dir, f'{self.param_suffix}_first_frame_roi.jpg'), self.first_frame)
+
+        if self.save_roi_video:
+            self.save_draw_rect()
+            if frame_idx == self.nframes - 1: # last frame
+                self.vidOut.release()
 
         if self.roi is None:
             print("Something went wrong with the roi")

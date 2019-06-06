@@ -36,7 +36,6 @@ class getPulseApp(object):
 
         # Parse inputs
         videofile = kwargs.get('videofile', '')
-        self.roi_percent = kwargs.get('roi_percent', 0.2)
         self.roi = kwargs.get('roi', None)
         self.find_faces = kwargs.get('find_faces', False)
         self.face_regions = kwargs.get('face_regions', ['forehead', 'nose', 'lcheek', 'rcheek', 'chin'])
@@ -45,6 +44,9 @@ class getPulseApp(object):
         self.output_dir = kwargs.get('output_dir', None)
         grid_size = kwargs.get('grid_size', 1)
         self.video_start_second = kwargs.get('video_start_second', 0)
+        self.control = kwargs.get('control', False)
+        self.control_region = kwargs.get('control_region', None)
+        self.save_roi_video = kwargs.get('save_roi_video', False)
 
         self.csv_fout = None
         self.vid_out = None
@@ -70,7 +72,7 @@ class getPulseApp(object):
                 os.makedirs(self.output_dir +"/");
 
             # Init CSV
-            param_suffix = self.color_space + "-" + str(int(self.roi_percent*100)) \
+            param_suffix = self.color_space + "-" + str(int(self.video_start_second)) \
                             + "-" + str(grid_size)
             self.csv_fout= self.output_dir + "/" + param_suffix + ".mat"
 
@@ -82,20 +84,22 @@ class getPulseApp(object):
 
         self.processor = GetPulseMC( find_faces = self.find_faces,
                                      face_regions = self.face_regions,
-                                     roi_percent = self.roi_percent,
                                      roi = self.roi,
                                      fixed_fps = self.fixed_fps,
                                      grid_size = grid_size,
                                      nframes = nframes,
                                      output_dir = self.output_dir,
-                                     param_suffix = param_suffix)
+                                     param_suffix = param_suffix,
+                                     control = self.control,
+                                     control_region = self.control_region,
+                                     save_roi_video = self.save_roi_video)
 
 
     def write_file(self):
         """
         Writes outputs to a mat file
         """
-        sio.savemat(self.csv_fout, {'data':self.processor.vals_out, 'start_sec': self.video_start_second, 'roi': self.processor.roi, 'sub_roi_type_map': self.processor.sub_roi_type_map})
+        sio.savemat(self.csv_fout, {'data':self.processor.vals_out, 'start_sec': self.video_start_second, 'sub_roi_type_map': self.processor.sub_roi_type_map})
 
     # Run this app
     def run(self):
@@ -146,8 +150,6 @@ if __name__ == "__main__":
                         help='if loading from video - filename')
     parser.add_argument('--find_faces', action='store_true', default=False,
                         help='Set to true if video is a face')
-    parser.add_argument('--roi_percent', type=float, default=0.2,
-                        help='Percentage of the image to process (centered)')
     parser.add_argument('--color_space', default="rgb",
                         help='color space to process the image in - rgb, hsv')
     parser.add_argument('--color_plane', type=int, default=None,
@@ -163,7 +165,6 @@ if __name__ == "__main__":
     print(args)
 
     App = getPulseApp(  videofile   =  args.videofile,
-                        roi_percent =  args.roi_percent,
                         find_faces  =  args.find_faces,
                         color_space =  args.color_space,
                         color_plane =  args.color_plane,
