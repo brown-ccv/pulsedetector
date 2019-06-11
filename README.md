@@ -8,7 +8,8 @@ pulse detection examples using [Python](http://python.org/) and [OpenCV](http://
 This goal is comparable to those of a few previous efforts in this area
 (such as https://github.com/mossblaser/HeartMonitor).
 
-References:s
+**References:**
+
 [http://people.csail.mit.edu/mrub/vidmag/papers/Balakrishnan_Detecting_Pulse_from_2013_CVPR_paper.pdf](http://people.csail.mit.edu/mrub/vidmag/papers/Balakrishnan_Detecting_Pulse_from_2013_CVPR_paper.pdf)
 
 [https://www.osapublishing.org/oe/fulltext.cfm?uri=oe-18-10-10762&id=199381](https://www.osapublishing.org/oe/fulltext.cfm?uri=oe-18-10-10762&id=199381)
