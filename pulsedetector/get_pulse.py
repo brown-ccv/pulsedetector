@@ -42,7 +42,7 @@ class getPulseApp(object):
         self.color_space = kwargs.get('color_space', 'rgb')
         self.color_plane = kwargs.get('color_plane', None)
         self.output_dir = kwargs.get('output_dir', None)
-        grid_size = kwargs.get('grid_size', 1)
+        grid_size = kwargs.get('grid_size', 5)
         self.video_start_second = kwargs.get('video_start_second', 0)
         self.control = kwargs.get('control', False)
         self.control_region = kwargs.get('control_region', None)
@@ -71,9 +71,12 @@ class getPulseApp(object):
                 print(("Createing dir: ",  self.output_dir))
                 os.makedirs(self.output_dir +"/");
 
-            # Init CSV
-            param_suffix = self.color_space + "-" + str(int(self.video_start_second)) \
-                            + "-" + str(grid_size)
+            if self.find_faces:
+                param_type = 'face'
+            else:
+                param_type = 'roi'
+
+            param_suffix = param_type + "-" + str(int(self.video_start_second)) + "-" + str(grid_size)
             self.csv_fout= self.output_dir + "/" + param_suffix + ".mat"
 
         else:

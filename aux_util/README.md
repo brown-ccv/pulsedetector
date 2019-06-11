@@ -36,7 +36,7 @@ Primary application script.  Controls parameters for video processing and analys
 * `roi` - array of ints [x, y, w, h] - this can be used instead of finding faces
 * `video_start_second` - number of seconds from video start to begin processing data (useful if first part of video is messy)
 * `control` - boolean - whether to include a control region, this also affects analysis stage.  The control region is used to perform spectral subtraction to reduce the noise in the signal.
-* `control_region` - array of ints [x, y, w, h] - where the control region should be, typically unobstructed wall
+* `control_region` - array of ints [x, y, w, h] - where the control region should be, typically unobstructed background wall
 * `save_roi_video` - boolean - whether to save a video with the ROIs drawn on
 
 **Data Analysis Parameters**
@@ -46,17 +46,14 @@ Primary application script.  Controls parameters for video processing and analys
 * `slide_pct` - int - what percentage of the window duration to slide from window to window (e.g. if `window_size` is 60, and `slide_pct` is .1, the windows will be offset by 6 seconds)
 * `upsample` - boolean - whether to upsample the data to 250 fps
 * `remove_outliers` - boolean - whether to remove sub-ROIs where the maximum frame-to-frame changes after normalization are greater than 1.5 standard deviations from the region as a whole
-
-**Plotting Parameters**
-* `plot_raw_data` - boolean - whether to plot raw data
-* `plot_data` - boolean - whether to plot FFT data
-* `plot_intervals` - array of time start and end pairs (e.g. `[[10,40], [70,100]]`) - time periods to plot data over
-* `grid_index` - number - which sub-ROI to plot
+* `lowcut` - float - Frequency in Hz for the lowcut of the bandpass filter, default is 0.75 Hz (45 bpm)
+* `highcut` - float - Frequency in Hz for the highcut of the bandpass filter, default is 3.0 Hz (180 bpm)
+* `plot_analysis` - boolean - whether to plot the results of the analysis
 
 ### Outputs
 
 All files will be saved to a folder with the base name of the input video.  The files will
-be prefixed with the color space, video start second, and grid size (e.g. `rgb-2-5`).
+be prefixed with `face` or `roi` depending on region selection type, video start second, and grid size (e.g. `face-2-5`).
 
 **process_data**
 * `<prefix>_first_frame_roi.jpg` - this file is a single image previewing the first frame with the region of interest (ROI) drawn in green - this is useful for ensuring `find_faces` nominally worked.
@@ -66,7 +63,4 @@ be prefixed with the color space, video start second, and grid size (e.g. `rgb-2
 **analyze_data**
 * `<prefix>-<bandpass boolean>-<frame rate>_processed.mat` - contains the upsampled and/or bandpassed data as well as the frame rate and whether it was bandpassed (butter - .75 - 5 Hz).  This file is also a byproduct of plotting.
 * `<prefix>-<bandpass boolean>-<frame rate>-<analysis type>.mat` - contains the window size (in frames), the analysis type, the for each region and window: the bpm estimate for each component, the aggregated bpm estimate, the confidence of those estimates, the component (pulse wave form), the peak detection results, and the frames between peaks.
-
-**plot_raw_data**
-* `<prefix>-<bandpass boolean>-<frame rate>_processed.mat` - contains the upsampled and/or bandpassed data as well as the frame rate and whether it was bandpassed (butter - .75 - 5 Hz).  This file is also a byproduct of analysis.
-* `<prefix>-`
+* `<<prefix>-<bandpass boolean>-<frame rate>-<analysis type>_plot.png` - figure resulting from `plot_analysis = True`

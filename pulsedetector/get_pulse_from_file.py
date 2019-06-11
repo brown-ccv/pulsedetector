@@ -40,9 +40,9 @@ class getPulseFromFileApp(object):
 
         self.fps = 0
 
-        # use if a bandpass is applied to the data (Hz) (45 bpm - 300 bpm)
-        lowcut = .75
-        highcut = 5
+        # use if a bandpass is applied to the data (Hz) (45 bpm - 180 bpm)
+        lowcut = kwargs.get('lowcut', 0.75)
+        highcut = kwargs.get('highcut', 3)
 
         # Parse inputs
         videofile = kwargs.get('videofile', '' )
@@ -52,6 +52,7 @@ class getPulseFromFileApp(object):
         upsample = kwargs.get('upsample', False)
         self.analysis_type = kwargs.get('analysis_type', 'green')
         self.remove_outliers = kwargs.get('remove_outliers', False)
+        self.subtract_control = kwargs.get('subtract_control', False)
         self.fname = None
         self.data = []
         self.sub_roi_type_map = {}
@@ -85,24 +86,36 @@ class getPulseFromFileApp(object):
 
             if 'control' in self.sub_roi_type_map:
                 self.control = True
+            elif self.subtract_control:
+                print("No control region found, setting subtract_control to False")
 
             print("Done reading data of size: " , self.data.shape)
 
             shape = self.data.shape
 
+            self.data = self.data[0:-2,:,:]
+
+            # subtract variation in control area from raw data
+            if self.subtract_control:
+                control_idx = self.sub_roi_type_map['control']
+                control_idx_slice = slice(control_idx[0], control_idx[-1]+1)
+                control_data = self.data[:, control_idx_slice, 1:]
+                control_data -= control_data.mean(axis=0)
+                control_data = control_data.mean(axis=1)
+
             # Upsample video using cubic interpolation to improve variability / peak detection
             # last time entry is all 0s, so indexing to -2 instead of end
             if upsample:
-                new_t = np.arange(self.data[0,0,0], self.data[-2,0,0], 1./self.upsample_rate)
+                new_t = np.arange(self.data[0,0,0], self.data[-1,0,0], 1./self.upsample_rate)
                 self.fps = self.upsample_rate
                 self.processed_data = np.zeros([len(new_t),shape[1],shape[2]])
                 for grid_idx in range(0,shape[1]):
                     for channel in range(1,shape[2]):
-                        f = interpolate.interp1d(self.data[0:-2, grid_idx, 0], self.data[0:-2, grid_idx, channel], kind='cubic', fill_value="extrapolate")
+                        f = interpolate.interp1d(self.data[:, grid_idx, 0], self.data[:, grid_idx, channel], kind='cubic', fill_value="extrapolate")
                         self.processed_data[:, grid_idx, 0] = new_t
                         self.processed_data[:, grid_idx, channel] = f(new_t)
             else:
-                self.processed_data = self.data[0:-2,:,:] # if not upsampling
+                self.processed_data = self.data[:,:,:] # if not upsampling
 
             if bandpass:
                 for grid_idx in range(0,shape[1]):
@@ -120,6 +133,9 @@ class getPulseFromFileApp(object):
 
         # remove outliers and run ica
         for region_type, region_idx in self.sub_roi_type_map.items():
+            if region_type == 'control':
+                continue
+
             # normalize the data for this time period and sub-roi
             region_idx_slice = slice(region_idx[0],region_idx[-1]+1)
             data = self.processed_data[frame_range, region_idx_slice, 1:]

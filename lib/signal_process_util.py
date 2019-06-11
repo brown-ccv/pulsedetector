@@ -101,38 +101,9 @@ def compute_fft(time, data, Fs):
 
     return 60. * np.linspace(0.0, Fs, L), np.abs(raw), np.angle(raw)
 
-    # print phase.shape
-
-    freqs = np.linspace(0.0, Fs/2., L//2)    #frequencies
-    freqs = 60. * freqs                     #convert to BPM (pulse)
-    idx = np.where((freqs >= 45) & (freqs <= 180)) #ideal filter
-
-    if not np.sum(idx):
-        return [], [], []
-
-    if dim == 1:
-        pruned = np.array([fft[idx]])
-        pphase = np.array([phase[idx]])
-
-    else:
-        pruned = np.array([fft[:,0][idx]])
-        pphase = np.array([phase[:,0][idx]])
-        for k in range(1, dim):
-            pruned = np.vstack((pruned, fft[:,k][idx]))
-            pphase = np.vstack((pphase, phase[:,k][idx]))
-
-
-    pruned = pruned.T
-    pphase = pphase.T
-    pfreq = freqs[idx]
-
-    # pruned  = 10.*np.log10(pruned/ np.min(pruned))   #convert to dB
-    # pruned  = (pruned - np.min(pruned)) / (np.max(pruned) - np.min(pruned))  # Normalize
-    # pruned  = (pruned) / np.sum(pruned)  # Probability
-
-    return pfreq, pruned, pphase
 
 # perform spectracl subtraction to remove noise and return de-noised mag and reconstructed signal with ideal filter between 45 and 180 bpm
+# this is not currently used, but may be useful for future improvements
 def spectral_subtract(noise_mag, signal_mag, signal_phase, nfft, freqs):
     clean_spec = signal_mag - noise_mag
     clean_spec[clean_spec < 0.] = 0.
